@@ -1,1 +1,9 @@
-<p>profiles works!</p>
+<h2>My Decks</h2>
+<button (click)="addNewDeck()">Add Random Deck</button>
+
+@for (deck of decks(); track deck.id) {
+  <div>
+    <h3>{{ deck.name }}</h3>
+    <button (click)="deleteDeck(deck.id)">Delete</button>
+  </div>
+}

@@ -1,0 +1,45 @@
+.google-btn {
+  display: inline-flex;
+  align-items: center;
+  background-color: #ffffff;
+  color: #1f1f1f;
+  border: 1px solid #747775;
+  border-radius: 4px;
+  padding: 0;
+  font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-weight: 500;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+  height: 40px;
+}
+
+/* Hover effect on the button background */
+.google-btn:hover {
+  background-color: #f1f3f4;
+  box-shadow: 0 1px 2px 0 rgba(60,64,67,0.30), 0 1px 3px 1px rgba(60,64,67,0.15);
+}
+
+.google-btn:active {
+  background-color: #e8eaed;
+}
+
+/* Perfect alignment for the icon */
+.google-icon-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+}
+
+.google-icon {
+  width: 18px;
+  height: 18px;
+}
+
+/* Button text adjustments */
+.btn-text {
+  padding-right: 12px;
+  line-height: 40px;
+}

@@ -1,7 +1,5 @@
 import { Injectable, signal } from '@angular/core';
-import { initializeApp } from 'firebase/app';
 import {
-  getAuth,
   onAuthStateChanged,
   User,
   createUserWithEmailAndPassword,
@@ -10,46 +8,34 @@ import {
   GoogleAuthProvider,
   signInWithPopup
 } from 'firebase/auth';
-
-const firebaseConfig = {
-  apiKey: "AIzaSyCOmRm9WqiL8GsZPFxGN03DvdC8-SGKLlo",
-  authDomain: "treachery-counter.firebaseapp.com",
-  projectId: "treachery-counter",
-  storageBucket: "treachery-counter.firebasestorage.app",
-  messagingSenderId: "15363933130",
-  appId: "1:15363933130:web:861a6288d47fdaa8c58533"
-};
+import { auth } from './firebase';
 
 @Injectable({
   providedIn: 'root'
 })
 export class AuthService {
-  private app = initializeApp(firebaseConfig);
-  private auth = getAuth(this.app);
-
-  // A read-only Signal representing the logged-in user [1]
   currentUser = signal<User | null>(null);
 
   constructor() {
-    onAuthStateChanged(this.auth, (user) => {
+    onAuthStateChanged(auth, (user) => {
       this.currentUser.set(user);
     });
   }
 
   signUp(email: string, password: string) {
-    return createUserWithEmailAndPassword(this.auth, email, password);
+    return createUserWithEmailAndPassword(auth, email, password);
   }
 
   logIn(email: string, password: string) {
-    return signInWithEmailAndPassword(this.auth, email, password);
+    return signInWithEmailAndPassword(auth, email, password);
   }
 
   logInWithGoogle() {
     const provider = new GoogleAuthProvider();
-    return signInWithPopup(this.auth, provider);
+    return signInWithPopup(auth, provider);
   }
 
   logOut() {
-    return signOut(this.auth);
+    return signOut(auth);
   }
 }
