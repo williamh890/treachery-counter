@@ -24,7 +24,7 @@ import { LoginBtn } from '../login-btn/login-btn';
           }
         </div>
 
-        <h1 class="text-lg font-semibold">{{ title() }}</h1>
+        <h1 class="text-lg font-semibold"></h1>
 
         <div class="justify-self-end">
           <app-login-btn />
@@ -46,8 +46,6 @@ export class Header {
   );
 
   showBack = computed(() => this.url() !== '/home');
-
-  title = input('Treachery Counter');
 
   back() {
     // Fall back to home if the user landed here directly (no in-app history)

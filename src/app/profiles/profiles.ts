@@ -1,12 +1,13 @@
-import { Component, DestroyRef, OnInit, inject, signal, computed, effect } from '@angular/core';
-import { getFirestore, collection, onSnapshot, doc, deleteDoc, addDoc } from 'firebase/firestore';
+import { Component, inject, signal, computed, effect } from '@angular/core';
+import { collection, onSnapshot, doc, deleteDoc, addDoc } from 'firebase/firestore';
+import { MatDialog } from '@angular/material/dialog';
+import { firstValueFrom } from 'rxjs';
+import { NewDeck } from '../models/deck';
+import { NewDeckDialog } from './new-deck-dialog/new-deck-dialog';
+
 import { AuthService } from '../auth';
 import { db } from '../firebase';
-
-interface Deck {
-  id: string;
-  name: string;
-}
+import { Deck } from '../models/deck';
 
 @Component({
   imports: [],
@@ -16,6 +17,7 @@ interface Deck {
 })
 export class Profiles {
   private auth = inject(AuthService);
+  private dialog = inject(MatDialog);
 
   readonly decks = signal<Deck[]>([]);
   readonly loading = signal(true);
@@ -53,8 +55,16 @@ export class Profiles {
   }
 
   async addNewDeck() {
+    const ref = this.dialog.open<NewDeckDialog, void, NewDeck>(NewDeckDialog, {
+      width: '32rem',
+      maxWidth: '95vw',
+    });
+
+    const result = await firstValueFrom(ref.afterClosed());
+    if (!result) return; // cancelled
+
     const decksRef = collection(db, 'users', this.userId(), 'decks');
-    await addDoc(decksRef, { name: 'New Custom Deck', createdAt: new Date() });
+    await addDoc(decksRef, { ...result });
   }
 
   async deleteDeck(deckId: string) {
