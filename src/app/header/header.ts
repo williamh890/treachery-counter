@@ -1,4 +1,4 @@
-import { Component, inject, input, computed } from '@angular/core';
+import { Component, inject, computed } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd } from '@angular/router';
 import { filter, map } from 'rxjs';
@@ -45,7 +45,9 @@ export class Header {
     { initialValue: this.router.url },
   );
 
-  showBack = computed(() => this.url() !== '/home');
+  showBack = computed(() => {
+    return this.url() !== '/home'
+  });
 
   back() {
     // Fall back to home if the user landed here directly (no in-app history)
