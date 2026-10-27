@@ -4,7 +4,7 @@ import { MatDivider } from '@angular/material/divider';
 import { MatIcon } from '@angular/material/icon';
 import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
 
-import { AuthService } from '../auth';
+import { AuthService } from '@services/auth';
 
 @Component({
   imports: [MatButton, MatDivider, MatIcon, MatMenu, MatMenuItem, MatMenuTrigger],

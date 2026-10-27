@@ -9,11 +9,11 @@ import {
   addDoc, collection, deleteDoc, doc, onSnapshot, setDoc,
 } from 'firebase/firestore';
 import { firstValueFrom } from 'rxjs';
-import { db } from '../firebase';
-import { Deck, NewDeck } from '../models/deck';
+import { db } from '@services/firebase';
+import { Deck, NewDeck } from '@models/deck';
 import { NewDeckDialog } from './new-deck-dialog/new-deck-dialog';
 import { DeckCard } from './deck-card/deck-card';
-import { AuthService } from '../auth';
+import { AuthService } from '@services/auth';
 
 
 @Component({
