@@ -3,4 +3,17 @@
 
   <a matButton="elevated" routerLink="/game" routerLinkActive="text-primary font-semibold">Start Game</a>
   <a matButton="elevated" routerLink="/profiles" routerLinkActive="text-primary font-semibold">Profiles</a>
+  <a matButton="elevated" routerLink="/profiles" routerLinkActive="text-primary font-semibold">Profiles</a>
+
+
+  @if (authService.currentUser(); as user) {
+    <div class="profile-card">
+      <p>Logged in as: <strong>{{ user.email }}</strong></p>
+      <button (click)="authService.logOut()">Sign Out</button>
+    </div>
+  } @else {
+    <button (click)="signInWithGoogle()">
+      Sign in with Google
+    </button>
+  }
 </div>

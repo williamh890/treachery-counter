@@ -42,3 +42,29 @@ __screenshots__/
 # System files
 .DS_Store
 Thumbs.db
+
+# Firebase CLI
+.firebase/
+firebase-debug.log*
+firebase-debug.*.log*
+ui-debug.log
+firestore-debug.log
+database-debug.log
+pubsub-debug.log
+.runtimeconfig.json
+
+# Emulator data
+firebase-export-*/
+.emulator-data/
+
+# Secrets (never commit)
+serviceAccount*.json
+*-firebase-adminsdk-*.json
+service-account*.json
+.env
+.env.*
+!.env.example
+
+# Cloud Functions (if you add them later)
+functions/node_modules/
+functions/lib/
