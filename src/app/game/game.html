@@ -1,1 +1,5 @@
-<p>game works!</p>
+<div>
+  @for (player of game.players(); track player.id) {
+    <div>{{ player.id }} {{ player.life}} HELLO</div>
+  }
+</div>

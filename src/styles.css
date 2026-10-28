@@ -1,1 +1,10 @@
 @import 'tailwindcss';
+
+@use '@angular/material' as mat;
+
+.touch-toggles {
+  @include mat.button-toggle-overrides((
+    height: 64px,
+    label-text-size: 1.5rem,
+  ));
+}
