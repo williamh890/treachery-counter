@@ -1,6 +1,7 @@
 // src/app/features/game/player-grid.ts
 import { Component, computed, inject } from '@angular/core';
 import { GameStore } from '@state/game.store';
+import { PlayerSetup } from './player-setup/player-setup';
 
 type Tile = {
   playerIndex: number;
@@ -10,6 +11,7 @@ type Tile = {
 
 @Component({
   selector: 'app-player-grid',
+  imports: [PlayerSetup],
   host: { class: 'flex min-h-0 flex-1' },
   template: `
     @for (column of columns(); track $index) {
@@ -22,7 +24,7 @@ type Tile = {
               [style.width]="tile.sideways ? '100cqh' : '100cqw'"
               [style.height]="tile.sideways ? '100cqw' : '100cqh'"
               [style.transform]="'translate(-50%, -50%) rotate(' + tile.turns * 90 + 'deg)'">
-              <span class="p-2 text-sm opacity-60">Seat {{ tile.playerIndex + 1 }} ▲</span>
+              <app-player-setup [seat]="tile.playerIndex"/>
             </div>
           </div>
         }
