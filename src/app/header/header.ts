@@ -51,8 +51,11 @@ export class Header {
   });
 
   back() {
-    // Fall back to home if the user landed here directly (no in-app history)
-    if (window.history.state?.navigationId > 1) {
+    console.log(this.router.url);
+    const url = this.router.url;
+    if (url.includes('start-game')) {
+      this.router.navigateByUrl('/home');
+    } else if (window.history.state?.navigationId > 1) {
       this.location.back();
     } else {
       this.router.navigateByUrl('/');
