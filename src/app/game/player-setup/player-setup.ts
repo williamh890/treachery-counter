@@ -4,6 +4,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatChipsModule } from '@angular/material/chips';
 import { Commander, Deck } from '@models/deck';
 import { AppUser, AuthService } from '@services/auth';
+import { GameStore } from '@state/game.store';
 
 enum SetupState {
   AccountOrGuest,
@@ -26,6 +27,7 @@ interface DeckCardInfo {
 })
 export class PlayerSetup {
   auth = inject(AuthService);
+  store = inject(GameStore);
 
   seat = input.required<number>();
   users = input.required<AppUser[]>();
@@ -33,11 +35,13 @@ export class PlayerSetup {
   SetupState = SetupState;
   state = signal<SetupState>(SetupState.AccountOrGuest);
   decks = signal<Deck[]>([]);
-  selectedDeck = signal<Deck | null>(null);
+
+  player = computed(() => this.store.playerAt(this.seat()));
+  playerDeck = computed(() => this.player()?.deck ?? null);
 
   /** Commander first, then partner/companion if the deck has them. */
   selectedCards = computed<DeckCardInfo[]>(() => {
-    const deck = this.selectedDeck();
+    const deck = this.playerDeck();
     if (!deck) return [];
 
     const cards: DeckCardInfo[] = [{ role: 'Commander', card: deck.commander }];
@@ -50,7 +54,7 @@ export class PlayerSetup {
     const playerDecks = await this.auth.getUserDecks(user.uid);
 
     this.decks.set([...playerDecks, ...playerDecks, ...playerDecks, ...playerDecks]);
-    this.selectedDeck.set(null);
+    this.store.setPlayerDeck(this.seat(), null);
     this.state.set(SetupState.DeckSelect);
   }
 
@@ -58,8 +62,13 @@ export class PlayerSetup {
     this.state.set(SetupState.UserSelect);
   }
 
+  chooseGuest() {
+    this.store.setPlayerIsGuest(this.seat(), true);
+    this.state.set(SetupState.DeckSelected);
+  }
+
   selectDeck(deck: Deck) {
-    this.selectedDeck.set(deck);
+    this.store.setPlayerDeck(this.seat(), deck);
     this.state.set(SetupState.DeckSelected);
   }
 
@@ -68,7 +77,7 @@ export class PlayerSetup {
     if (current === SetupState.AccountOrGuest) return;
 
     // Clear data belonging to the state we're leaving.
-    if (current === SetupState.DeckSelected) this.selectedDeck.set(null);
+    if (current === SetupState.DeckSelected) this.store.setPlayerDeck(this.seat(), null);
     if (current === SetupState.DeckSelect) this.decks.set([]);
 
     this.state.set(current - 1);

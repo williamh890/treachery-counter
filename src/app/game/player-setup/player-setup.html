@@ -3,7 +3,7 @@
 
   @if (state() === SetupState.AccountOrGuest) {
     <button (click)="chooseAccount()" matButton="elevated">Choose Account</button>
-    <button matButton="elevated">Guest</button>
+    <button (click)="chooseGuest()" matButton="elevated">Guest</button>
   } @else if (state() === SetupState.UserSelect) {
     <mat-chip-set aria-label="Player Selection">
       @for (user of users(); track user.uid) {
@@ -39,7 +39,13 @@
       }
     </ul>
   } @else if (state() === SetupState.DeckSelected) {
-    <div class="text-center text-lg font-semibold">{{ selectedDeck()?.name }}</div>
+    <div class="text-center text-lg font-semibold">
+      @if (playerDeck()) {
+        {{ playerDeck()?.name }}
+      } @else {
+        Guest
+      }
+    </div>
 
     <div class="flex w-full min-w-0 justify-center gap-2">
       @for (item of selectedCards(); track item.role) {

@@ -71,6 +71,7 @@ export class StartGame {
     const { startingLife, playerCount } = this.form.getRawValue();
     this.game.setStartingLife(startingLife);
     this.game.setPlayerCount(playerCount);
+    this.game.startGameSetup();
 
     this.router.navigate(['/game']);
   }
