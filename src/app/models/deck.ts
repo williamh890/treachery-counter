@@ -8,6 +8,7 @@ export interface Deck {
   name: string;
   commander: Commander;
   partner?: Commander;
+  companion?: Commander;
 }
 
 export type NewDeck = Omit<Deck, 'id'>;

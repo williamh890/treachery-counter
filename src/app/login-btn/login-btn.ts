@@ -17,7 +17,7 @@ export class LoginBtn {
 
   async signInWithGoogle() {
     try {
-      await this.authService.logInWithGoogle();
+      await this.authService.signInWithGoogle();
       console.log('Successfully signed in with Google!');
     } catch (error) {
       console.error('Google Sign-In failed:', error);

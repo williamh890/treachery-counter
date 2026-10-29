@@ -5,6 +5,7 @@ import { Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { GameStore } from '@state/game.store';
+import { AuthService } from '@services/auth';
 
 @Component({
   selector: 'app-start-game',
@@ -56,6 +57,7 @@ export class StartGame {
   private fb = inject(NonNullableFormBuilder);
   private game = inject(GameStore);
   private router = inject(Router);
+  authService = inject(AuthService);
 
   readonly lifeOptions = [20, 25, 40];
   readonly playerOptions = Array.from({ length: 8 }, (_, i) => i + 1);
@@ -69,7 +71,7 @@ export class StartGame {
     const { startingLife, playerCount } = this.form.getRawValue();
     this.game.setStartingLife(startingLife);
     this.game.setPlayerCount(playerCount);
-    this.game.startGame();
+
     this.router.navigate(['/game']);
   }
 }

@@ -1,1 +1,64 @@
-<span class="p-2 text-sm opacity-60">Seat {{ seat() }} ▲</span>
+<div class="flex h-full min-w-0 flex-col items-center justify-center gap-2 p-2">
+  <div class="text-center text-xs opacity-60">Seat {{ seat() }} ▲</div>
+
+  @if (state() === SetupState.AccountOrGuest) {
+    <button (click)="chooseAccount()" matButton="elevated">Choose Account</button>
+    <button matButton="elevated">Guest</button>
+  } @else if (state() === SetupState.UserSelect) {
+    <mat-chip-set aria-label="Player Selection">
+      @for (user of users(); track user.uid) {
+        <mat-chip (click)="selectUser(user)">{{ user.username }}</mat-chip>
+      } @empty {
+        <mat-chip>No players found.</mat-chip>
+      }
+    </mat-chip-set>
+  } @else if (state() === SetupState.DeckSelect) {
+    <ul
+      class="flex max-h-64 min-h-0 w-full flex-1 flex-wrap content-start justify-center gap-1 overflow-y-auto overflow-x-hidden"
+    >
+      @for (deck of decks(); track deck.id) {
+        <li class="w-20">
+          <button
+            type="button"
+            class="flex w-full cursor-pointer flex-col items-center gap-0.5 rounded p-0.5 transition hover:bg-black/5 dark:hover:bg-white/10"
+            (click)="selectDeck(deck)"
+          >
+            <img
+              class="aspect-[7/5] w-full rounded-sm object-cover object-top shadow"
+              loading="lazy"
+              [src]="deck.commander.url"
+              [alt]="deck.commander.name"
+            />
+            <span class="line-clamp-2 w-full text-center text-[0.65rem] leading-tight">
+              {{ deck.name }}
+            </span>
+          </button>
+        </li>
+      } @empty {
+        <li class="w-full text-center text-sm opacity-70">No decks found.</li>
+      }
+    </ul>
+  } @else if (state() === SetupState.DeckSelected) {
+    <div class="text-center text-lg font-semibold">{{ selectedDeck()?.name }}</div>
+
+    <div class="flex w-full min-w-0 justify-center gap-2">
+      @for (item of selectedCards(); track item.role) {
+        <figure class="flex min-w-0 max-w-28 flex-1 flex-col items-center gap-1">
+          <img
+            class="aspect-[5/7] w-full rounded-md object-cover shadow"
+            [src]="item.card.url"
+            [alt]="item.card.name"
+          />
+          <figcaption class="w-full text-center text-[0.65rem] leading-tight">
+            <span class="block uppercase tracking-wide opacity-60">{{ item.role }}</span>
+            {{ item.card.name }}
+          </figcaption>
+        </figure>
+      }
+    </div>
+  }
+
+  @if (state() !== SetupState.AccountOrGuest) {
+    <button (click)="previousState()" matButton="text">← Back</button>
+  }
+</div>

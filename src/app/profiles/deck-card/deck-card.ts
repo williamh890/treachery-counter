@@ -18,6 +18,11 @@ import { Deck } from '../../models/deck';
           <img [src]="partner.url" [alt]="partner.name"
                class="aspect-[4/3] w-full object-cover" />
         }
+
+        @if (deck().companion; as companion) {
+          <img [src]="companion.url" [alt]="companion.name"
+               class="aspect-[4/3] w-full object-cover" />
+        }
       </div>
 
       <div class="flex items-start gap-2 p-4">

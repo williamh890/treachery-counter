@@ -40,6 +40,7 @@ import { CommanderPicker } from './commander-picker';
 
         <app-commander-picker label="Commander" [(value)]="commander" />
         <app-commander-picker label="Partner (optional)" [(value)]="partner" />
+        <app-commander-picker label="Companion (optional)" [(value)]="companion" />
       </div>
     </mat-dialog-content>
 
@@ -55,6 +56,7 @@ export class NewDeckDialog {
   protected name = signal('');
   protected commander = signal<Commander | null>(null);
   protected partner = signal<Commander | null>(null);
+  protected companion = signal<Commander | null>(null);
 
   protected canSave = computed(() => this.name().trim() !== '' && this.commander() !== null);
 
@@ -63,11 +65,14 @@ export class NewDeckDialog {
     if (!this.canSave() || !commander) return;
 
     const partner = this.partner();
+    const companion = this.companion();
+
     this.ref.close({
       name: this.name().trim(),
       commander,
-      // Firestore rejects `undefined`, so only include the key when there is a value
+
       ...(partner ? { partner } : {}),
+      ...(companion ? { companion } : {}),
     });
   }
 }

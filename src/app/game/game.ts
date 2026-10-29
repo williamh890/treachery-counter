@@ -2,6 +2,7 @@
 import { Component, computed, inject } from '@angular/core';
 import { GameStore } from '@state/game.store';
 import { PlayerSetup } from './player-setup/player-setup';
+import { AuthService } from '@services/auth';
 
 type Tile = {
   playerIndex: number;
@@ -17,14 +18,14 @@ type Tile = {
     @for (column of columns(); track $index) {
       <div class="flex min-h-0 min-w-0 flex-1 flex-col">
         @for (tile of column; track tile.playerIndex) {
-          <div
-            class="relative min-h-0 flex-1 overflow-hidden [container-type:size]">
+          <div class="relative min-h-0 flex-1 overflow-hidden [container-type:size]">
             <div
               class="absolute bg-grey left-1/2 top-1/2 flex justify-center items-center"
               [style.width]="tile.sideways ? '100cqh' : '100cqw'"
               [style.height]="tile.sideways ? '100cqw' : '100cqh'"
-              [style.transform]="'translate(-50%, -50%) rotate(' + tile.turns * 90 + 'deg)'">
-              <app-player-setup [seat]="tile.playerIndex"/>
+              [style.transform]="'translate(-50%, -50%) rotate(' + tile.turns * 90 + 'deg)'"
+            >
+              <app-player-setup [seat]="tile.playerIndex" [users]="auth.users()" />
             </div>
           </div>
         }
@@ -34,6 +35,7 @@ type Tile = {
 })
 export class Game {
   private game = inject(GameStore);
+  auth = inject(AuthService);
 
   constructor() {
     this.game.startGame();
@@ -59,12 +61,12 @@ export class Game {
   });
 
   readonly columns = computed<Tile[][]>(() =>
-    this.gridLayout().map(column =>
-      column.map(playerIndex => {
+    this.gridLayout().map((column) =>
+      column.map((playerIndex) => {
         const turns = this.getPlayerQuarterTurns(column, playerIndex);
         return { playerIndex, turns, sideways: Math.abs(turns) % 2 === 1 };
-      })
-    )
+      }),
+    ),
   );
 
   getPlayerQuarterTurns(column: number[], index: number) {
