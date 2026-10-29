@@ -17,12 +17,12 @@ import { DeckCard } from './deck-card/deck-card';
 @Component({
   selector: 'app-profiles',
   imports: [MatButton, MatIcon, MatProgressBar, MatFormField, MatLabel, MatInput, DeckCard],
-  host: { class: 'block' },
+  host: { class: 'block h-full' },
   template: `
-    <div class="mx-auto max-w-6xl">
+    <div class="mx-auto flex h-full max-w-6xl flex-col">
       @if (uid()) {
         <form
-          class="mb-6 flex items-start gap-2"
+          class="mb-6 flex shrink-0 items-start gap-2"
           (submit)="$event.preventDefault(); saveUsername()"
         >
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
@@ -41,7 +41,7 @@ import { DeckCard } from './deck-card/deck-card';
         </form>
       }
 
-      <div class="mb-4 flex items-center justify-between">
+      <div class="mb-4 flex shrink-0 items-center justify-between">
         <h1 class="text-xl font-semibold">Decks</h1>
         <button mat-flat-button [disabled]="!uid()" (click)="addNewDeck()">
           <mat-icon>add</mat-icon>
@@ -50,18 +50,20 @@ import { DeckCard } from './deck-card/deck-card';
       </div>
 
       @if (error(); as message) {
-        <p class="text-red-600" role="alert">{{ message }}</p>
+        <p class="shrink-0 text-red-600" role="alert">{{ message }}</p>
       }
 
       @if (loading()) {
-        <mat-progress-bar mode="indeterminate" />
+        <mat-progress-bar class="shrink-0" mode="indeterminate" />
       } @else if (!uid()) {
         <p class="opacity-70">Sign in to see your decks.</p>
       } @else {
-        <ul class="grid grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-4">
+        <ul
+          class="grid min-h-0 flex-1 grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] content-start gap-4 overflow-y-auto pb-4"
+        >
           @for (deck of decks(); track deck.id) {
-            <li>
-              <app-deck-card [deck]="deck" (remove)="removeDeck(deck)" />
+            <li class="h-full">
+              <app-deck-card class="h-full" [deck]="deck" (remove)="removeDeck(deck)" />
             </li>
           } @empty {
             <li class="col-span-full py-12 text-center opacity-70">

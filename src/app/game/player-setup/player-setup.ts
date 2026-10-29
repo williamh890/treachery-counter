@@ -53,7 +53,7 @@ export class PlayerSetup {
   async selectUser(user: AppUser) {
     const playerDecks = await this.auth.getUserDecks(user.uid);
 
-    this.decks.set([...playerDecks, ...playerDecks, ...playerDecks, ...playerDecks]);
+    this.decks.set([...playerDecks]);
     this.store.setPlayerDeck(this.seat(), null);
     this.state.set(SetupState.DeckSelect);
   }

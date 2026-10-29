@@ -11,17 +11,28 @@ import { Deck } from '../../models/deck';
   host: { class: 'block' },
   template: `
     <mat-card appearance="outlined" class="h-full">
-      <div class="grid overflow-hidden rounded-t-[inherit]" [class.grid-cols-2]="deck().partner">
-        <img [src]="deck().commander.url" [alt]="deck().commander.name"
-             class="aspect-[4/3] w-full object-cover" />
-        @if (deck().partner; as partner) {
-          <img [src]="partner.url" [alt]="partner.name"
-               class="aspect-[4/3] w-full object-cover" />
-        }
+      <div class="relative aspect-[4/3] overflow-hidden rounded-t-[inherit]">
+        <div class="grid h-full" [class.grid-cols-2]="deck().partner">
+          <img
+            [src]="deck().commander.url"
+            [alt]="deck().commander.name"
+            class="h-full w-full min-h-0 object-cover"
+          />
+          @if (deck().partner; as partner) {
+            <img
+              [src]="partner.url"
+              [alt]="partner.name"
+              class="h-full w-full min-h-0 object-cover"
+            />
+          }
+        </div>
 
         @if (deck().companion; as companion) {
-          <img [src]="companion.url" [alt]="companion.name"
-               class="aspect-[4/3] w-full object-cover" />
+          <img
+            [src]="companion.url"
+            [alt]="companion.name"
+            class="absolute bottom-2 right-2 h-14 aspect-[4/3] rounded border-2 border-white object-cover shadow-md"
+          />
         }
       </div>
 
