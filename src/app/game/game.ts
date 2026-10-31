@@ -2,10 +2,10 @@ import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { Router } from '@angular/router';
 import { GameStore } from '@state/game.store';
-import { AuthService } from '@services/auth';
 import { PlayerSetup } from './player-setup/player-setup';
 import { Player } from './player/player';
 import { DragArrow, Point } from './drag-arrow';
+import { ProfileStore } from '@state/profile.store';
 
 type Tile = {
   playerIndex: number;
@@ -57,7 +57,7 @@ const FADE_MS = 200;
               [style.transform]="'translate(-50%, -50%) rotate(' + tile.turns * 90 + 'deg)'"
             >
               @if (game.gameState() === 'SETUP') {
-                <app-player-setup [seat]="tile.playerIndex" [users]="auth.users()" />
+                <app-player-setup [seat]="tile.playerIndex" [users]="profileStore.users()" />
               } @else if (game.gameState() === 'PLAY') {
                 <app-player [seat]="tile.playerIndex" />
               } @else if (game.gameState() === 'POST') {
@@ -93,8 +93,8 @@ const FADE_MS = 200;
   `,
 })
 export class Game {
-  game = inject(GameStore);
-  auth = inject(AuthService);
+  protected game = inject(GameStore);
+  protected profileStore = inject(ProfileStore);
 
   private router = inject(Router);
 

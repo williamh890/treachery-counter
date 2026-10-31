@@ -3,8 +3,8 @@ import { Component, computed, input, signal, inject } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatChipsModule } from '@angular/material/chips';
 import { Commander, Deck } from '@models/deck';
-import { AppUser, AuthService } from '@services/auth';
 import { GameStore } from '@state/game.store';
+import { ProfileStore, AppUser } from '@state/profile.store';
 
 enum SetupState {
   AccountOrGuest,
@@ -26,8 +26,8 @@ interface DeckCardInfo {
   templateUrl: './player-setup.html',
 })
 export class PlayerSetup {
-  auth = inject(AuthService);
-  store = inject(GameStore);
+  gameStore = inject(GameStore);
+  profileStore = inject(ProfileStore);
 
   seat = input.required<number>();
   users = input.required<AppUser[]>();
@@ -36,7 +36,7 @@ export class PlayerSetup {
   state = signal<SetupState>(SetupState.AccountOrGuest);
   decks = signal<Deck[]>([]);
 
-  player = computed(() => this.store.playerAt(this.seat()));
+  player = computed(() => this.gameStore.playerAt(this.seat()));
   playerDeck = computed(() => this.player()?.deck ?? null);
 
   /** Commander first, then partner/companion if the deck has them. */
@@ -51,10 +51,10 @@ export class PlayerSetup {
   });
 
   async selectUser(user: AppUser) {
-    const playerDecks = await this.auth.getUserDecks(user.uid);
+    const playerDecks = await this.profileStore.loadDecks(user.uid);
 
     this.decks.set([...playerDecks]);
-    this.store.setPlayerDeck(this.seat(), null);
+    this.gameStore.setPlayerDeck(this.seat(), null);
     this.state.set(SetupState.DeckSelect);
   }
 
@@ -63,12 +63,12 @@ export class PlayerSetup {
   }
 
   chooseGuest() {
-    this.store.setPlayerIsGuest(this.seat(), true);
+    this.gameStore.setPlayerIsGuest(this.seat(), true);
     this.state.set(SetupState.DeckSelected);
   }
 
   selectDeck(deck: Deck) {
-    this.store.setPlayerDeck(this.seat(), deck);
+    this.gameStore.setPlayerDeck(this.seat(), deck);
     this.state.set(SetupState.DeckSelected);
   }
 
@@ -77,7 +77,7 @@ export class PlayerSetup {
     if (current === SetupState.AccountOrGuest) return;
 
     // Clear data belonging to the state we're leaving.
-    if (current === SetupState.DeckSelected) this.store.setPlayerDeck(this.seat(), null);
+    if (current === SetupState.DeckSelected) this.gameStore.setPlayerDeck(this.seat(), null);
     if (current === SetupState.DeckSelect) this.decks.set([]);
 
     this.state.set(current - 1);

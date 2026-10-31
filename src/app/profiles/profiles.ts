@@ -13,6 +13,7 @@ import { AuthService } from '@services/auth';
 import { Deck, NewDeck } from '@models/deck';
 import { NewDeckDialog } from './new-deck-dialog/new-deck-dialog';
 import { DeckCard } from './deck-card/deck-card';
+import { ProfileStore } from '@state/profile.store';
 
 @Component({
   selector: 'app-profiles',
@@ -79,6 +80,7 @@ export class Profiles {
   private auth = inject(AuthService);
   private dialog = inject(MatDialog);
   private snackBar = inject(MatSnackBar);
+  private profileStore = inject(ProfileStore);
 
   protected decks = signal<Deck[]>([]);
   protected loading = signal(true);
@@ -90,17 +92,17 @@ export class Profiles {
   protected savingUsername = signal(false);
 
   // Follows the stored username, but stays editable; resets when the stored value changes.
-  protected usernameDraft = linkedSignal(() => this.auth.userProfile()?.username ?? '');
+  protected usernameDraft = linkedSignal(() => this.profileStore.profile()?.username ?? '');
 
   protected canSaveUsername = computed(() => {
     const draft = this.usernameDraft().trim();
-    return !!draft && draft !== (this.auth.userProfile()?.username ?? '') && !this.savingUsername();
+    return !!draft && draft !== (this.profileStore.profile()?.username ?? '') && !this.savingUsername();
   });
 
   constructor() {
     effect((onCleanup) => {
       // Wait for auth to resolve so we don't flash "Sign in" on reload.
-      if (!this.auth.ready()) return;
+      if (!this.profileStore.ready()) return;
 
       const uid = this.uid();
 
@@ -133,7 +135,7 @@ export class Profiles {
 
     this.savingUsername.set(true);
     try {
-      await this.auth.updateUsername(this.usernameDraft());
+      await this.profileStore.updateUsername(this.usernameDraft());
       this.error.set(null);
       this.snackBar.open('Username updated', undefined, { duration: 3000 });
     } catch (e) {
