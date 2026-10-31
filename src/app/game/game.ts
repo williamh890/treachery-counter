@@ -1,4 +1,4 @@
-import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, computed, effect, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { Router } from '@angular/router';
 import { GameStore } from '@state/game.store';
@@ -6,6 +6,7 @@ import { PlayerSetup } from './player-setup/player-setup';
 import { Player } from './player/player';
 import { DragArrow, Point } from './drag-arrow';
 import { ProfileStore } from '@state/profile.store';
+import { GroupStore } from '@state/group.store';
 
 type Tile = {
   playerIndex: number;
@@ -57,7 +58,7 @@ const FADE_MS = 200;
               [style.transform]="'translate(-50%, -50%) rotate(' + tile.turns * 90 + 'deg)'"
             >
               @if (game.gameState() === 'SETUP') {
-                <app-player-setup [seat]="tile.playerIndex" [users]="profileStore.users()" />
+                <app-player-setup [seat]="tile.playerIndex" [users]="game.seatUsers()" />
               } @else if (game.gameState() === 'PLAY') {
                 <app-player [seat]="tile.playerIndex" />
               } @else if (game.gameState() === 'POST') {
@@ -113,8 +114,14 @@ export class Game {
   private dragging = false;
   private fadeTimer?: ReturnType<typeof setTimeout>;
 
+  private readonly groupStore = inject(GroupStore);
+
   constructor() {
     inject(DestroyRef).onDestroy(() => clearTimeout(this.fadeTimer));
+    effect(() => {
+      if (!this.groupStore.ready()) return;
+      if (!this.game.group()) this.router.navigate(['/start-game']);
+    });
   }
 
   start() {

@@ -1,4 +1,4 @@
-import { Component, computed, input, signal, inject } from '@angular/core';
+import { Component, computed, input, signal, inject, effect } from '@angular/core';
 
 import { MatButtonModule } from '@angular/material/button';
 import { MatChipsModule } from '@angular/material/chips';
@@ -34,7 +34,19 @@ export class PlayerSetup {
 
   SetupState = SetupState;
   state = signal<SetupState>(SetupState.AccountOrGuest);
-  decks = signal<Deck[]>([]);
+  selectedUid = signal<string | null>(null);
+
+  /** Decks of the chosen account, straight from the store's cache. */
+  decks = computed<Deck[]>(() => {
+    const uid = this.selectedUid();
+    return (uid && this.profileStore.decksByUser()[uid]) || [];
+  });
+
+  /** False only while a chosen account's decks haven't arrived yet. */
+  decksLoaded = computed(() => {
+    const uid = this.selectedUid();
+    return !uid || this.profileStore.decksByUser()[uid] !== undefined;
+  });
 
   player = computed(() => this.gameStore.playerAt(this.seat()));
   playerDeck = computed(() => this.player()?.deck ?? null);
@@ -50,10 +62,18 @@ export class PlayerSetup {
     return cards;
   });
 
-  async selectUser(user: AppUser) {
-    const playerDecks = await this.profileStore.loadDecks(user.uid);
+  constructor() {
+    // Fallback: if the prefetch hasn't delivered this account yet, fetch it once.
+    effect(() => {
+      const uid = this.selectedUid();
+      if (uid && !this.profileStore.decksByUser()[uid]) {
+        void this.profileStore.loadDecks(uid);
+      }
+    });
+  }
 
-    this.decks.set([...playerDecks]);
+  selectUser(user: AppUser) {
+    this.selectedUid.set(user.uid);
     this.gameStore.setPlayerDeck(this.seat(), null);
     this.state.set(SetupState.DeckSelect);
   }
@@ -78,7 +98,7 @@ export class PlayerSetup {
 
     // Clear data belonging to the state we're leaving.
     if (current === SetupState.DeckSelected) this.gameStore.setPlayerDeck(this.seat(), null);
-    if (current === SetupState.DeckSelect) this.decks.set([]);
+    if (current === SetupState.DeckSelect) this.selectedUid.set(null);
 
     this.state.set(current - 1);
   }

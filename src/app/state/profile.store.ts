@@ -9,7 +9,7 @@ import {
   withState,
 } from '@ngrx/signals';
 import { rxMethod } from '@ngrx/signals/rxjs-interop';
-import { EMPTY, Observable, catchError, pipe, switchMap, tap } from 'rxjs';
+import { EMPTY, Observable, catchError, merge, pipe, switchMap, tap } from 'rxjs';
 import { User } from 'firebase/auth';
 import {
   DocumentReference,
@@ -61,12 +61,20 @@ const initialState: ProfileState = {
 // so switchMap cleans up for us.
 const docSnapshot$ = (ref: DocumentReference) =>
   new Observable<DocumentSnapshot>((sub) =>
-    onSnapshot(ref, (s) => sub.next(s), (e) => sub.error(e)),
+    onSnapshot(
+      ref,
+      (s) => sub.next(s),
+      (e) => sub.error(e),
+    ),
   );
 
 const querySnapshot$ = (ref: Query) =>
   new Observable<QuerySnapshot>((sub) =>
-    onSnapshot(ref, (s) => sub.next(s), (e) => sub.error(e)),
+    onSnapshot(
+      ref,
+      (s) => sub.next(s),
+      (e) => sub.error(e),
+    ),
   );
 
 /** Seed the profile only if it doesn't exist; never overwrite an existing one. */
@@ -77,8 +85,9 @@ async function ensureProfile(uid: string, user: User | null) {
     const snap = await tx.get(ref);
     if (snap.exists()) return;
 
+    const name = user?.displayName ?? user?.email?.split('@')[0] ?? 'Player';
     tx.set(ref, {
-      username: user?.displayName ?? user?.email?.split('@')[0] ?? 'Player',
+      username: name.slice(0, MAX_USERNAME_LENGTH) || 'Player',
       createdAt: serverTimestamp(),
     });
   });
@@ -139,9 +148,7 @@ export const ProfileStore = signalStore(
 
           return querySnapshot$(collection(db, 'users')).pipe(
             tap((snapshot) => {
-              const users = snapshot.docs.map(
-                (d) => ({ uid: d.id, ...d.data() }) as AppUser,
-              );
+              const users = snapshot.docs.map((d) => ({ uid: d.id, ...d.data() }) as AppUser);
               users.sort((a, b) => (a.username ?? '').localeCompare(b.username ?? ''));
               patchState(store, { users });
             }),
@@ -151,6 +158,27 @@ export const ProfileStore = signalStore(
             }),
           );
         }),
+      ),
+    ),
+
+    watchDecks: rxMethod<string[]>(
+      pipe(
+        switchMap((userIds) =>
+          merge(
+            ...userIds.map((id) =>
+              querySnapshot$(collection(db, 'users', id, 'decks')).pipe(
+                tap((snapshot) => {
+                  const decks = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as Deck);
+                  patchState(store, (s) => ({ decksByUser: { ...s.decksByUser, [id]: decks } }));
+                }),
+                catchError((err) => {
+                  console.error(`decks listener failed for ${id}`, err);
+                  return EMPTY;
+                }),
+              ),
+            ),
+          ),
+        ),
       ),
     ),
 

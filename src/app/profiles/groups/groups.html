@@ -1,0 +1,156 @@
+<div class="flex h-full gap-4 overflow-hidden p-4">
+  <!-- Group list -->
+  <section class="flex w-96 shrink-0 flex-col gap-3 overflow-hidden">
+    <div class="flex items-start gap-2">
+      <mat-form-field class="flex-1" subscriptSizing="dynamic">
+        <mat-label>New group name</mat-label>
+        <input
+          matInput
+          maxlength="40"
+          autocomplete="off"
+          [(ngModel)]="newGroupName"
+          (keydown.enter)="createGroup()"
+        />
+      </mat-form-field>
+      <button
+        mat-flat-button
+        class="!h-14"
+        [disabled]="!canCreate()"
+        (click)="createGroup()"
+      >
+        <mat-icon>group_add</mat-icon>
+        Create group
+      </button>
+    </div>
+
+    <div class="min-h-0 flex-1 overflow-y-auto">
+      @if (!groupStore.ready()) {
+        <p class="p-2 opacity-70">Loading your groups…</p>
+      } @else if (groups().length === 0) {
+        <p class="p-2 opacity-70">
+          You're not in any groups yet. Name a group above to create your first one.
+        </p>
+      } @else {
+        <ul class="flex flex-col gap-2">
+          @for (g of groups(); track g.id) {
+            <li>
+              <button
+                type="button"
+                class="flex min-h-16 w-full cursor-pointer items-center justify-between gap-3 rounded-xl border border-[var(--mat-sys-outline-variant)] px-4 py-3 text-left aria-[current=true]:border-transparent aria-[current=true]:bg-[var(--mat-sys-secondary-container)] aria-[current=true]:text-[var(--mat-sys-on-secondary-container)]"
+                [attr.aria-current]="g.id === selectedGroup()?.id ? 'true' : null"
+                (click)="select(g.id)"
+              >
+                <span class="truncate text-lg">{{ g.name }}</span>
+                <span class="shrink-0 text-sm opacity-70">
+                  {{ g.members.length }} {{ g.members.length === 1 ? 'member' : 'members' }}
+                </span>
+              </button>
+            </li>
+          }
+        </ul>
+      }
+    </div>
+  </section>
+
+  <!-- Selected group -->
+  <section
+    class="flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-[var(--mat-sys-outline-variant)] p-4"
+  >
+    @if (selectedGroup(); as group) {
+      <header class="flex items-center justify-between gap-3">
+        <div class="min-w-0">
+          <h2 class="truncate text-2xl font-medium">{{ group.name }}</h2>
+          <p class="opacity-70">
+            {{ group.members.length }} {{ group.members.length === 1 ? 'member' : 'members' }}
+          </p>
+        </div>
+
+        <button
+          mat-flat-button
+          class="!h-12"
+          [matMenuTriggerFor]="addMenu"
+          [disabled]="busy() || availableUsers().length === 0"
+        >
+          <mat-icon>person_add</mat-icon>
+          Add member
+        </button>
+        <mat-menu #addMenu="matMenu">
+          @for (user of availableUsers(); track user.uid) {
+            <button mat-menu-item (click)="addMember(group.id, user.uid)">
+              {{ user.username }}
+            </button>
+          }
+        </mat-menu>
+      </header>
+
+      <ul class="mt-4 flex min-h-0 flex-1 flex-col overflow-y-auto">
+        @for (member of group.members; track member.uid) {
+          <li
+            class="flex min-h-16 items-center justify-between gap-3 border-b border-[var(--mat-sys-outline-variant)] px-2"
+          >
+            <span class="truncate text-lg">
+              {{ member.username }}
+              @if (member.uid === currentUid()) {
+                <span class="opacity-70">(you)</span>
+              }
+            </span>
+
+            @if (member.uid === group.ownerId) {
+              <span class="shrink-0 opacity-70">Owner</span>
+            } @else {
+              <button
+                mat-stroked-button
+                class="!h-12"
+                [disabled]="busy()"
+                (click)="removeMember(group.id, member.uid)"
+              >
+                <mat-icon>person_remove</mat-icon>
+                Remove
+              </button>
+            }
+          </li>
+        }
+      </ul>
+
+      <footer class="mt-4 flex items-center justify-end gap-2 pt-2">
+        @if (isOwner()) {
+          @if (confirmingDelete()) {
+            <span class="mr-2">Delete {{ group.name }} for everyone?</span>
+            <button mat-button class="!h-12" (click)="confirmingDelete.set(false)">
+              Keep group
+            </button>
+            <button
+              mat-flat-button
+              class="!h-12"
+              [disabled]="busy()"
+              (click)="deleteGroup(group.id)"
+            >
+              <mat-icon>delete</mat-icon>
+              Delete group
+            </button>
+          } @else {
+            <button mat-stroked-button class="!h-12" (click)="confirmingDelete.set(true)">
+              <mat-icon>delete</mat-icon>
+              Delete group
+            </button>
+          }
+        } @else {
+          <button
+            mat-stroked-button
+            class="!h-12"
+            [disabled]="busy()"
+            (click)="leaveGroup(group.id)"
+          >
+            <mat-icon>logout</mat-icon>
+            Leave group
+          </button>
+        }
+      </footer>
+    } @else if (groupStore.ready()) {
+      <div class="m-auto max-w-sm text-center opacity-70">
+        <p class="text-lg">No group selected</p>
+        <p>Create a group on the left, then add the people you play with.</p>
+      </div>
+    }
+  </section>
+</div>

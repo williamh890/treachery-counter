@@ -1,5 +1,7 @@
 import { Component, computed, effect, inject, linkedSignal, signal } from '@angular/core';
-import { MatButton } from '@angular/material/button';
+import { RouterLink } from '@angular/router';
+
+import { MatAnchor, MatButton } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
 import { MatFormField, MatLabel } from '@angular/material/form-field';
 import { MatIcon } from '@angular/material/icon';
@@ -17,29 +19,43 @@ import { ProfileStore } from '@state/profile.store';
 
 @Component({
   selector: 'app-profiles',
-  imports: [MatButton, MatIcon, MatProgressBar, MatFormField, MatLabel, MatInput, DeckCard],
+  imports: [
+    MatAnchor,
+    MatButton,
+    MatIcon,
+    MatProgressBar,
+    MatFormField,
+    MatLabel,
+    MatInput,
+    DeckCard,
+    RouterLink,
+  ],
   host: { class: 'block h-full' },
   template: `
-    <div class="mx-auto flex h-full max-w-6xl flex-col">
+    <div class="mx-auto flex h-full max-w-6xl flex-col p-4 md:p-6">
       @if (uid()) {
-        <form
-          class="mb-6 flex shrink-0 items-start gap-2"
-          (submit)="$event.preventDefault(); saveUsername()"
-        >
-          <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <mat-label>Username</mat-label>
-            <input
-              matInput
-              maxlength="30"
-              autocomplete="username"
-              [value]="usernameDraft()"
-              (input)="usernameDraft.set($any($event.target).value)"
-            />
-          </mat-form-field>
-          <button mat-flat-button type="submit" class="mt-1" [disabled]="!canSaveUsername()">
-            Save
-          </button>
-        </form>
+        <div class="mb-6 flex shrink-0 items-start justify-between gap-2">
+          <form class="flex items-start gap-2" (submit)="$event.preventDefault(); saveUsername()">
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Username</mat-label>
+              <input
+                matInput
+                maxlength="30"
+                autocomplete="username"
+                [value]="usernameDraft()"
+                (input)="usernameDraft.set($any($event.target).value)"
+              />
+            </mat-form-field>
+            <button mat-flat-button type="submit" class="mt-1" [disabled]="!canSaveUsername()">
+              Save
+            </button>
+          </form>
+
+          <a mat-stroked-button class="!h-12" routerLink="/profiles/groups">
+            <mat-icon>groups</mat-icon>
+            Groups
+          </a>
+        </div>
       }
 
       <div class="mb-4 flex shrink-0 items-center justify-between">
@@ -96,7 +112,9 @@ export class Profiles {
 
   protected canSaveUsername = computed(() => {
     const draft = this.usernameDraft().trim();
-    return !!draft && draft !== (this.profileStore.profile()?.username ?? '') && !this.savingUsername();
+    return (
+      !!draft && draft !== (this.profileStore.profile()?.username ?? '') && !this.savingUsername()
+    );
   });
 
   constructor() {

@@ -1,0 +1,100 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- helpers ----------
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isValidUsername(u) {
+      return u is string && u.size() > 0 && u.size() <= 30;
+    }
+
+    function isValidGroupName(n) {
+      return n is string && n.size() > 0 && n.size() <= 40;
+    }
+
+    function isCommander(c) {
+      return c is map
+        && c.keys().hasOnly(['name', 'url'])
+        && c.keys().hasAll(['name', 'url'])
+        && c.name is string && c.name.size() > 0 && c.name.size() <= 100
+        && c.url is string && c.url.size() <= 500 && c.url.matches('https://.*');
+    }
+
+    function isValidDeck(d) {
+      return d.keys().hasOnly(['name', 'commander', 'partner'])
+        && d.keys().hasAll(['name', 'commander'])
+        && d.name is string && d.name.size() > 0 && d.name.size() <= 100
+        && isCommander(d.commander)
+        && (!('partner' in d) || isCommander(d.partner));
+    }
+
+    // ---------- users/{uid} ----------
+    // Any signed-in user can read every profile (needed for the player picker
+    // and group member lists). Only the owner can write their own.
+
+    match /users/{uid} {
+      allow read: if isSignedIn();
+
+      allow create: if isSelf(uid)
+        && request.resource.data.keys().hasOnly(['username', 'createdAt'])
+        && request.resource.data.keys().hasAll(['username', 'createdAt'])
+        && isValidUsername(request.resource.data.username)
+        && request.resource.data.createdAt == request.time;
+
+      // Only the username can change; createdAt is immutable.
+      allow update: if isSelf(uid)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['username'])
+        && isValidUsername(request.resource.data.username);
+
+      allow delete: if false;
+
+      // ---------- users/{uid}/decks/{deckId} ----------
+      // Readable by any signed-in user (so a deck can be picked for any seat);
+      // only the owner can create, edit, or delete.
+
+      match /decks/{deckId} {
+        allow read: if isSignedIn();
+        allow create, update: if isSelf(uid) && isValidDeck(request.resource.data);
+        allow delete: if isSelf(uid);
+      }
+    }
+
+    // ---------- groups/{groupId} ----------
+    // Only members can see a group. Any member can add or remove members;
+    // only the owner can delete. The owner can never be removed.
+
+    match /groups/{groupId} {
+      allow read: if isSignedIn()
+        && request.auth.uid in resource.data.memberIds;
+
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasOnly(['name', 'ownerId', 'memberIds', 'createdAt'])
+        && request.resource.data.keys().hasAll(['name', 'ownerId', 'memberIds', 'createdAt'])
+        && isValidGroupName(request.resource.data.name)
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.memberIds == [request.auth.uid]
+        && request.resource.data.createdAt == request.time;
+
+      allow update: if isSignedIn()
+        && request.auth.uid in resource.data.memberIds
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberIds'])
+        && request.resource.data.memberIds is list
+        && request.resource.data.memberIds.size() <= 50
+        && resource.data.ownerId in request.resource.data.memberIds;
+
+      allow delete: if isSignedIn()
+        && resource.data.ownerId == request.auth.uid;
+    }
+
+    // Everything else is denied by default.
+  }
+}
