@@ -1,0 +1,63 @@
+# .github/workflows/deploy.yml
+name: Deploy to Firebase
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# One deploy per branch/PR at a time; a newer push cancels the older run.
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  id-token: write # lets the job request a GitHub OIDC token
+
+env:
+  FIREBASE_PROJECT: treachery-counter
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # PRs from forks don't get repository secrets, so skip them.
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24 # match what you run locally / what Angular 22 requires
+          cache: npm
+
+      - run: npm ci
+
+      # Add a test step here if you want deploys gated on tests, e.g.:
+      # - run: npm test -- --watch=false --browsers=ChromeHeadless
+
+      - run: npm run build
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+
+      # Pull requests: temporary preview URL (expires after 7 days).
+      - name: Deploy preview channel
+        if: github.event_name == 'pull_request'
+        run: >
+          npx firebase hosting:channel:deploy pr-${{ github.event.number }}
+          --expires 7d
+          --project "$FIREBASE_PROJECT"
+          --non-interactive
+
+      # Pushes to main: live site plus Firestore security rules.
+      - name: Deploy to production
+        if: github.event_name == 'push'
+        run: >
+          npx firebase deploy
+          --only hosting,firestore:rules
+          --project "$FIREBASE_PROJECT"
+          --non-interactive
