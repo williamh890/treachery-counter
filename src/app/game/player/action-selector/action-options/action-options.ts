@@ -47,8 +47,8 @@ const TARGET_GROUP: OptionGroup = {
                 @let selected = isSelected(group, option);
                 <button
                   type="button"
-                  class="flex touch-manipulation items-center gap-2 border-2 text-sm font-semibold transition [-webkit-tap-highlight-color:transparent]"
-                  [class]="pillClass(option, selected)"
+                  class="flex touch-manipulation items-center gap-2 border-2 transition [-webkit-tap-highlight-color:transparent]"
+                  [class]="pillClass(group, option, selected)"
                   [style.--fill]="colors[option]?.fill ?? null"
                   [style.--ink]="colors[option]?.ink ?? null"
                   [style.--edge]="colors[option]?.edge ?? null"
@@ -61,10 +61,17 @@ const TARGET_GROUP: OptionGroup = {
                   <span class="grid size-4 shrink-0 place-items-center" aria-hidden="true">
                     @if (selected) {
                       <span class="text-base leading-none">&#x2713;</span>
-                    } @else if (colors[option]) {
-                      <span class="size-2.5 rounded-full bg-[var(--fill)] ring-1 ring-white/50"></span>
                     } @else {
-                      <span class="size-3.5 rounded-full border-2 border-neutral-500"></span>
+                      <!-- TODO: Replace this placeholder SVG with your custom icon later -->
+                      <svg
+                        class="size-3.5"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.5"
+                      >
+                        <circle cx="12" cy="12" r="8" stroke-dasharray="4 3" />
+                      </svg>
                     }
                   </span>
                   {{ option }}
@@ -106,24 +113,27 @@ export class ActionOptions {
     return Array.isArray(current) ? (current as string[]).includes(option) : current === option;
   }
 
-  protected pillClass(option: string, selected: boolean) {
-    // One squarer rounded-rectangle shape for every option button.
-    const shape = 'min-h-12 rounded-lg pl-3 pr-4';
+  protected pillClass(group: OptionGroup, option: string, selected: boolean) {
+    const shape =
+      group.id === 'target'
+        ? 'min-h-9 rounded-full px-3 py-1 text-xs font-semibold'
+        : 'min-h-9 rounded-lg pl-3 pr-4 text-sm font-semibold';
 
     if (this.colors[option]) {
-      return `${shape} ${
+      return `${shape} bg-[var(--fill)] text-[var(--ink)] ${
         selected
-          ? 'border-[var(--edge)] bg-[var(--fill)] text-[var(--ink)]'
-          : 'border-[var(--edge)] bg-neutral-800 text-white'
+          ? 'border-[var(--fill)] ring-2 ring-inset ring-[var(--ink)] font-bold'
+          : 'border-[var(--edge)]'
       }`;
     }
+
+    // Targets (no color config): the white fill is already the selected signal
     return `${shape} ${
       selected
-        ? 'border-white bg-white text-black'
+        ? 'border-white bg-white text-black font-bold'
         : 'border-neutral-500 bg-neutral-800 text-white'
     }`;
   }
-
   protected choose(group: OptionGroup, option: string) {
     this.value.update((v) => {
       switch (group.id) {

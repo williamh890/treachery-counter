@@ -28,9 +28,13 @@ interface Press {
   x: number;
   y: number;
   center: Point;
+  /** Started on a button, e.g. in the action selector. */
+  onControl: boolean;
 }
 
 const DRAG_THRESHOLD_PX = 8;
+/** A finger holding a button jitters; don't mistake that for a drag. */
+const CONTROL_DRAG_THRESHOLD_PX = 16;
 const FADE_MS = 200;
 
 @Component({
@@ -149,9 +153,11 @@ export class Game {
       x: e.clientX,
       y: e.clientY,
       center: { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 },
+      onControl: !!(e.target as HTMLElement).closest('button'),
     };
     this.dragging = false;
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    // No pointer capture yet: it happens once the press turns into a drag, so taps and
+    // holds on buttons (e.g. in the action selector) keep behaving like normal presses.
   }
 
   protected onPointerMove(e: PointerEvent) {
@@ -159,8 +165,10 @@ export class Game {
     if (!p || e.pointerId !== p.pointerId) return;
 
     if (!this.dragging) {
-      if (Math.hypot(e.clientX - p.x, e.clientY - p.y) < DRAG_THRESHOLD_PX) return;
+      const threshold = p.onControl ? CONTROL_DRAG_THRESHOLD_PX : DRAG_THRESHOLD_PX;
+      if (Math.hypot(e.clientX - p.x, e.clientY - p.y) < threshold) return;
       this.dragging = true;
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
       clearTimeout(this.fadeTimer);
       this.arrowFading.set(false);
       this.drag.set({

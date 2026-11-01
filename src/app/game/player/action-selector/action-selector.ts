@@ -77,15 +77,15 @@ export interface ActionSubmission extends ActionOptionsValue {
     <div class="flex shrink-0 gap-2 p-2">
       <button
         type="button"
-        class="min-h-14 flex-[1] touch-manipulation rounded-lg border-2 border-neutral-500 bg-neutral-800 text-xl text-white transition active:bg-neutral-700 [-webkit-tap-highlight-color:transparent]"
+        class="min-h-14 flex-[1] touch-manipulation rounded-full border-2 border-neutral-500 bg-neutral-800 text-xl text-white transition active:bg-neutral-700 [-webkit-tap-highlight-color:transparent]"
         aria-label="Cancel"
-        (click)="cancel.emit()"
+        (click)="cancelled.emit()"
       >
         <span aria-hidden="true">&#x2715;</span>
       </button>
       <button
         type="button"
-        class="min-h-14 flex-[3] touch-manipulation rounded-lg border-2 border-white bg-white text-lg font-semibold text-black transition active:bg-neutral-200 [-webkit-tap-highlight-color:transparent]"
+        class="min-h-14 flex-[3] touch-manipulation rounded-full border-2 border-white bg-white text-lg font-semibold text-black transition active:bg-neutral-200 [-webkit-tap-highlight-color:transparent]"
         (click)="submit()"
       >
         Apply
@@ -98,9 +98,9 @@ export class ActionSelector {
   count = model(0);
 
   /** Emits the count and chosen options when Submit is pressed. */
-  apply = output<ActionSubmission>();
+  submitted = output<ActionSubmission>();
   /** Emits when Cancel is pressed. */
-  cancel = output<void>();
+  cancelled = output<void>();
 
   protected readonly options = signal<ActionOptionsValue>(DEFAULT_ACTION_OPTIONS);
 
@@ -113,7 +113,7 @@ export class ActionSelector {
   }
 
   protected submit() {
-    this.apply.emit({ count: this.count(), ...this.options() });
+    this.submitted.emit({ count: this.count(), ...this.options() });
   }
 
   /** Regular tap: step by 1, unless this click is just the release of a hold. */

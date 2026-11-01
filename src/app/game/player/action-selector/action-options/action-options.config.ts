@@ -19,7 +19,7 @@ export const DEFAULT_ACTION_OPTIONS: ActionOptionsValue = {
 
 // ---------- rules: what is available depends on the target (and type) ----------
 
-export const TARGETS: readonly ActionTarget[] = ['Player', 'All', 'Opponents'];
+export const TARGETS: readonly ActionTarget[] = ['Player', 'Opponents', 'All'];
 
 export const TYPE_OPTIONS_BY_TARGET: Record<ActionTarget, readonly ActionType[]> = {
   Player: ['Damage', 'Healing', 'Lifelink', 'Infect'],
