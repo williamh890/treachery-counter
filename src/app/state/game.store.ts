@@ -14,6 +14,11 @@ export type Player = {
   deck: Deck | null;
 };
 
+export type ActionSelect = {
+  sourceSeat: number;
+  targetSeat: number;
+}
+
 type GameState = {
   gameState: 'SETUP' | 'PLAY' | 'POST';
   playerCount: number;
@@ -21,6 +26,7 @@ type GameState = {
   players: Player[];
   /** The group this game is played with; limits who can take a seat. */
   groupId: string | null;
+  actionSelect: ActionSelect | null;
 };
 
 const initialState: GameState = {
@@ -29,6 +35,7 @@ const initialState: GameState = {
   startingLife: 20,
   players: [],
   groupId: null,
+  actionSelect: null,
 };
 
 const MIN_PLAYERS = 2;
@@ -66,7 +73,6 @@ export const GameStore = signalStore(
       profiles.watchDecks(store.deckUserIds);
     },
   })),
-
   withMethods((store) => ({
     setGroup(groupId: string | null) {
       patchState(store, { groupId });
@@ -86,11 +92,6 @@ export const GameStore = signalStore(
     setPlayerIsGuest(seat: number, isGuest: boolean) {
       patchState(store, ({ players }) => ({
         players: players.map((p, i) => (i === seat ? { ...p, isGuest } : p)),
-      }));
-    },
-    onPlayerDamaged(seat: number, delta: number) {
-      patchState(store, ({ players }) => ({
-        players: players.map((p, i) => (i === seat ? { ...p, life: p.life - delta } : p)),
       }));
     },
     playerAt(seat: number): Player | undefined {
@@ -117,4 +118,13 @@ export const GameStore = signalStore(
       patchState(store, { gameState: 'PLAY' });
     },
   })),
+  withMethods((store) => ({
+    setActionSelect(sourceSeat: number, targetSeat: number) {
+      const actionSelect = { sourceSeat, targetSeat };
+      patchState(store, { actionSelect });
+    },
+    clearActionSelect() {
+      patchState(store, { actionSelect: null });
+    }
+  }))
 );

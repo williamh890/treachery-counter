@@ -1,6 +1,7 @@
 // src/app/features/game/player/player.ts
 import { Component, computed, inject, input } from '@angular/core';
 import { GameStore } from '@state/game.store';
+import { ActionSelector } from "./action-selector/action-selector";
 
 @Component({
   selector: 'app-player',
@@ -19,22 +20,36 @@ import { GameStore } from '@state/game.store';
     <div class="absolute inset-0 bg-black/55"></div>
 
     <div class="relative z-10 flex h-full flex-col items-center justify-center">
-      <span class="text-sm opacity-80 [text-shadow:0_1px_3px_rgb(0_0_0/0.8)]">
-        {{ player()?.name }}
-      </span>
-      <span
-        class="font-bold leading-none tabular-nums text-[35cqmin] [text-shadow:0_2px_8px_rgb(0_0_0/0.7)]"
-      >
-        {{ player()?.life }}
-      </span>
+      @if (actionSelect()?.targetSeat === seat()) {
+        <app-action-selector (apply)="applyAction()" (cancel)="cancelAction()"/>
+      } @else {
+        <span class="text-sm opacity-80 [text-shadow:0_1px_3px_rgb(0_0_0/0.8)]">
+          {{ player()?.name }}
+        </span>
+        <span
+          class="font-bold leading-none tabular-nums text-[35cqmin] [text-shadow:0_2px_8px_rgb(0_0_0/0.7)]"
+        >
+          {{ player()?.life }}
+        </span>
+      }
     </div>
   `,
+  imports: [ActionSelector],
 })
 export class Player {
-  private store = inject(GameStore);
+  private gameStore = inject(GameStore);
 
   seat = input.required<number>();
 
-  player = computed(() => this.store.playerAt(this.seat()));
+  player = computed(() => this.gameStore.playerAt(this.seat()));
   commanderUrl = computed(() => this.player()?.deck?.commander.url ?? null);
+  actionSelect = computed(() => this.gameStore.actionSelect());
+
+  applyAction() {
+    this.gameStore.clearActionSelect();
+  }
+
+  cancelAction() {
+    this.gameStore.clearActionSelect();
+  }
 }

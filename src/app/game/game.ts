@@ -207,10 +207,8 @@ export class Game {
     this.dragging = false;
   }
 
-  /** Called with the seat the drag started on and the seat it was released over. */
-  private onPlayerDragged(from: number, to: number) {
-    console.log(`Drag from seat ${from} to seat ${to}`);
-    this.game.onPlayerDamaged(to, 1);
+  private onPlayerDragged(sourceSeat: number, targetSeat: number) {
+    this.game.setActionSelect(sourceSeat, targetSeat);
   }
 
   private fadeOutArrow() {
