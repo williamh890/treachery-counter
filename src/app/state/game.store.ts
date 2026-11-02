@@ -18,6 +18,8 @@ export type Player = {
   id: number;
   name: string;
   life: number;
+  infect: number;
+  commanderDmg: Record<number, number>;
   isGuest: boolean;
   deck: Deck | null;
 };
@@ -112,11 +114,16 @@ export const GameStore = signalStore(
     resetGame() {
       patchState(store, initialState);
     },
+
     startGameSetup() {
       const players = Array.from({ length: store.playerCount() }, (_, i) => ({
         id: i + 1,
         name: `Player ${i + 1}`,
         life: store.startingLife(),
+        infect: 0,
+        commanderDmg: Object.fromEntries(
+          Array.from({ length: store.playerCount() }, (_, seat) => [seat, 0] as const),
+        ),
         deck: null,
         isGuest: false,
       }));
@@ -143,7 +150,6 @@ export const GameStore = signalStore(
       const { targetSeat, sourceSeat } = select;
       const { count, options } = action;
       const numAlivePlayers = store.players().length;
-      console.log(targetSeat, sourceSeat);
 
       // export type ActionType = 'Damage' | 'Healing' | 'Lifelink' | 'Infect' | 'Drain' | 'Extort';
       // export type ActionTarget = 'Player' | 'All' | 'Opponents';
@@ -151,7 +157,6 @@ export const GameStore = signalStore(
       patchState(store, ({ players }) => ({
         actionSelect: null,
         players: players.map((player, seat) => {
-          console.log('seat: ', seat);
           let shouldApply = false;
           const isTarget = seat === targetSeat;
           const isSource = seat === sourceSeat;
@@ -188,7 +193,7 @@ export const GameStore = signalStore(
             }
             case 'Lifelink': {
               shouldApply = true;
-              optionsType  = isSource ? 'Healing' : 'Damage';
+              optionsType = isSource ? 'Healing' : 'Damage';
               break;
             }
           }
@@ -198,17 +203,29 @@ export const GameStore = signalStore(
           }
 
           let life = player.life;
+          let infect = player.infect;
+          let commanderDmg = {...player.commanderDmg};
+
           switch (optionsType) {
             case 'Damage': {
               life -= playerCount;
+
+              if (options.tags.includes('Commander')) {
+                commanderDmg[sourceSeat] += playerCount;
+              }
               break;
             }
             case 'Healing': {
               life += playerCount;
               break;
             }
+            case 'Infect': {
+              infect += playerCount;
+              break;
+            }
           }
-          return { ...player, life };
+
+          return { ...player, life, infect, commanderDmg };
         }),
       }));
     },
