@@ -1,10 +1,18 @@
 // src/app/state/game.store.ts
 import { computed, inject } from '@angular/core';
 import { Deck } from '@models/deck';
-import { signalStore, withState, withMethods, withComputed, patchState, withHooks } from '@ngrx/signals';
+import {
+  signalStore,
+  withState,
+  withMethods,
+  withComputed,
+  patchState,
+  withHooks,
+} from '@ngrx/signals';
 import { withStorageSync } from './with-storage-sync';
 import { GroupStore } from './group.store';
 import { ProfileStore } from './profile.store';
+import { ActionSubmission } from '../game/player/action-selector/action-selector';
 
 export type Player = {
   id: number;
@@ -17,7 +25,7 @@ export type Player = {
 export type ActionSelect = {
   sourceSeat: number;
   targetSeat: number;
-}
+};
 
 type GameState = {
   gameState: 'SETUP' | 'PLAY' | 'POST';
@@ -125,6 +133,84 @@ export const GameStore = signalStore(
     },
     clearActionSelect() {
       patchState(store, { actionSelect: null });
-    }
-  }))
+    },
+    applyAction(action: ActionSubmission) {
+      const select = store.actionSelect();
+      if (!select) {
+        return;
+      }
+
+      const { targetSeat, sourceSeat } = select;
+      const { count, options } = action;
+      const numAlivePlayers = store.players().length;
+      console.log(targetSeat, sourceSeat);
+
+      // export type ActionType = 'Damage' | 'Healing' | 'Lifelink' | 'Infect' | 'Drain' | 'Extort';
+      // export type ActionTarget = 'Player' | 'All' | 'Opponents';
+      // export type ActionTag = 'Commander';
+      patchState(store, ({ players }) => ({
+        actionSelect: null,
+        players: players.map((player, seat) => {
+          console.log('seat: ', seat);
+          let shouldApply = false;
+          const isTarget = seat === targetSeat;
+          const isSource = seat === sourceSeat;
+
+          let playerCount = count;
+          let optionsType = options.type;
+
+          switch (options.target) {
+            case 'Player': {
+              shouldApply = isTarget;
+              break;
+            }
+            case 'All': {
+              shouldApply = true;
+              break;
+            }
+            case 'Opponents': {
+              shouldApply = !isSource;
+              break;
+            }
+          }
+
+          switch (options.type) {
+            case 'Drain': {
+              shouldApply = true;
+              optionsType = isSource ? 'Healing' : 'Damage';
+              break;
+            }
+            case 'Extort': {
+              shouldApply = true;
+              optionsType = isSource ? 'Healing' : 'Damage';
+              playerCount = isSource ? count * (numAlivePlayers - 1) : count;
+              break;
+            }
+            case 'Lifelink': {
+              shouldApply = true;
+              optionsType  = isSource ? 'Healing' : 'Damage';
+              break;
+            }
+          }
+
+          if (!shouldApply) {
+            return player;
+          }
+
+          let life = player.life;
+          switch (optionsType) {
+            case 'Damage': {
+              life -= playerCount;
+              break;
+            }
+            case 'Healing': {
+              life += playerCount;
+              break;
+            }
+          }
+          return { ...player, life };
+        }),
+      }));
+    },
+  })),
 );

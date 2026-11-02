@@ -134,6 +134,7 @@ export class ActionOptions {
         : 'border-neutral-500 bg-neutral-800 text-white'
     }`;
   }
+
   protected choose(group: OptionGroup, option: string) {
     this.value.update((v) => {
       switch (group.id) {

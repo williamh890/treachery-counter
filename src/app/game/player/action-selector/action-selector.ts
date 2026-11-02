@@ -1,10 +1,7 @@
 // src/app/features/game/player/action-selector/action-selector.ts
 import { Component, DestroyRef, inject, model, output, signal } from '@angular/core';
 import { ActionOptions } from './action-options/action-options';
-import {
-  ActionOptionsValue,
-  DEFAULT_ACTION_OPTIONS,
-} from './action-options/action-options.config';
+import { ActionOptionsValue, DEFAULT_ACTION_OPTIONS } from './action-options/action-options.config';
 
 /** How long a press must last before it counts as "hold". */
 const HOLD_DELAY_MS = 200;
@@ -22,8 +19,9 @@ const snapUp = (n: number, step: number) => (Math.floor(n / step) + 1) * step;
 const snapDown = (n: number, step: number) => Math.max(0, (Math.ceil(n / step) - 1) * step);
 
 /** What the selector emits on Submit: the count plus the chosen options. */
-export interface ActionSubmission extends ActionOptionsValue {
+export interface ActionSubmission {
   count: number;
+  options: ActionOptionsValue;
 }
 
 @Component({
@@ -79,14 +77,14 @@ export interface ActionSubmission extends ActionOptionsValue {
         type="button"
         class="min-h-14 flex-[1] touch-manipulation rounded-full border-2 border-neutral-500 bg-neutral-800 text-xl text-white transition active:bg-neutral-700 [-webkit-tap-highlight-color:transparent]"
         aria-label="Cancel"
-        (click)="cancelled.emit()"
+        (click)="cancel.emit()"
       >
         <span aria-hidden="true">&#x2715;</span>
       </button>
       <button
         type="button"
         class="min-h-14 flex-[3] touch-manipulation rounded-full border-2 border-white bg-white text-lg font-semibold text-black transition active:bg-neutral-200 [-webkit-tap-highlight-color:transparent]"
-        (click)="submit()"
+        (click)="onApply()"
       >
         Apply
       </button>
@@ -98,9 +96,9 @@ export class ActionSelector {
   count = model(0);
 
   /** Emits the count and chosen options when Submit is pressed. */
-  submitted = output<ActionSubmission>();
+  apply = output<ActionSubmission>();
   /** Emits when Cancel is pressed. */
-  cancelled = output<void>();
+  cancel = output<void>();
 
   protected readonly options = signal<ActionOptionsValue>(DEFAULT_ACTION_OPTIONS);
 
@@ -112,8 +110,8 @@ export class ActionSelector {
     inject(DestroyRef).onDestroy(() => this.clearTimer());
   }
 
-  protected submit() {
-    this.submitted.emit({ count: this.count(), ...this.options() });
+  protected onApply() {
+    this.apply.emit({ count: this.count(), options: this.options() });
   }
 
   /** Regular tap: step by 1, unless this click is just the release of a hold. */

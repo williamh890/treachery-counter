@@ -216,6 +216,7 @@ export class Game {
   }
 
   private onPlayerDragged(sourceSeat: number, targetSeat: number) {
+    console.log(sourceSeat, targetSeat);
     this.game.setActionSelect(sourceSeat, targetSeat);
   }
 

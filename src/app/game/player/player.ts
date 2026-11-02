@@ -1,7 +1,7 @@
 // src/app/features/game/player/player.ts
 import { Component, computed, inject, input } from '@angular/core';
 import { GameStore } from '@state/game.store';
-import { ActionSelector } from "./action-selector/action-selector";
+import { ActionSelector, ActionSubmission } from "./action-selector/action-selector";
 
 @Component({
   selector: 'app-player',
@@ -21,7 +21,7 @@ import { ActionSelector } from "./action-selector/action-selector";
 
     <div class="relative z-10 flex h-full flex-col items-center justify-center">
       @if (actionSelect()?.targetSeat === seat()) {
-        <app-action-selector (apply)="applyAction()" (cancel)="cancelAction()"/>
+        <app-action-selector (apply)="applyAction($event)" (cancel)="cancelAction()"/>
       } @else {
         <span class="text-sm opacity-80 [text-shadow:0_1px_3px_rgb(0_0_0/0.8)]">
           {{ player()?.name }}
@@ -45,8 +45,8 @@ export class Player {
   commanderUrl = computed(() => this.player()?.deck?.commander.url ?? null);
   actionSelect = computed(() => this.gameStore.actionSelect());
 
-  applyAction() {
-    this.gameStore.clearActionSelect();
+  applyAction(action: ActionSubmission) {
+    this.gameStore.applyAction(action);
   }
 
   cancelAction() {
