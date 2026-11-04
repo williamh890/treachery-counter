@@ -7,8 +7,16 @@ const COMMANDER_LETHAL = 21;
 
 @Component({
   selector: 'app-life-total',
-  host: { class: 'flex max-w-full flex-col items-center gap-[2cqmin]' },
+  host: { class: 'relative flex h-full w-full flex-col items-center justify-center gap-[2cqmin]' },
   template: `
+    @if (isMyTurn()) {
+      <!-- Active player highlight -->
+      <div
+        class="pointer-events-none absolute inset-0 border-4 border-indigo-400/80"
+        aria-hidden="true"
+      ></div>
+    }
+
     <span class="text-sm opacity-80 [text-shadow:0_1px_3px_rgb(0_0_0/0.8)]">
       {{ player()?.name }}
     </span>
@@ -20,7 +28,7 @@ const COMMANDER_LETHAL = 21;
 
     @if (infect() > 0 || commanderHits().length) {
       <div
-        class="absolute inset-x-[3cqmin] bottom-[3cqmin] flex flex-wrap items-end justify-start gap-[1.5cqmin]"
+        class="absolute left-[3cqmin] top-[3cqmin] flex max-w-[calc(100%-6cqmin)] flex-wrap items-start justify-start gap-[1.5cqmin]"
       >
         @if (infect() > 0) {
           <span
@@ -58,6 +66,19 @@ const COMMANDER_LETHAL = 21;
         }
       </div>
     }
+
+    @if (isMyTurn()) {
+      <!-- Pass turn: full width across the bottom -->
+      <div class="absolute inset-x-0 bottom-0 flex p-2">
+        <button
+          type="button"
+          class="min-h-14 flex-1 touch-manipulation rounded-full border-2 border-indigo-300 bg-indigo-500 text-lg font-semibold text-white transition active:bg-indigo-400 [-webkit-tap-highlight-color:transparent]"
+          (click)="passTurn()"
+        >
+          Pass turn
+        </button>
+      </div>
+    }
   `,
 })
 export class LifeTotal {
@@ -66,6 +87,8 @@ export class LifeTotal {
   seat = input.required<number>();
 
   player = computed(() => this.gameStore.playerAt(this.seat()));
+
+  isMyTurn = computed(() => this.gameStore.turnSeat() === this.seat());
 
   infect = computed(() => this.player()?.infect ?? 0);
   infectLethal = computed(() => this.infect() >= INFECT_LETHAL);
@@ -86,4 +109,8 @@ export class LifeTotal {
       })
       .filter((hit) => hit.dmg > 0),
   );
+
+  passTurn() {
+    this.gameStore.passTurn();
+  }
 }

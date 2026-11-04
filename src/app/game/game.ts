@@ -149,7 +149,6 @@ export class Game {
     console.log('RANDOM YO');
     const numPlayers = this.game.players().length;
     this.game.setTurn(Math.floor(Math.random() * numPlayers));
-
   }
 
   // --- Drag between players ---
