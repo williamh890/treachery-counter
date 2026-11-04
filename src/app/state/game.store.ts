@@ -37,15 +37,17 @@ type GameState = {
   /** The group this game is played with; limits who can take a seat. */
   groupId: string | null;
   actionSelect: ActionSelect | null;
+  turnSeat: number | null;
 };
 
 const initialState: GameState = {
   gameState: 'SETUP',
   playerCount: 4,
-  startingLife: 20,
+  startingLife: 40,
   players: [],
   groupId: null,
   actionSelect: null,
+  turnSeat: null,
 };
 
 const MIN_PLAYERS = 2;
@@ -83,6 +85,8 @@ export const GameStore = signalStore(
       profiles.watchDecks(store.deckUserIds);
     },
   })),
+
+  // Game setup methods
   withMethods((store) => ({
     setGroup(groupId: string | null) {
       patchState(store, { groupId });
@@ -111,10 +115,10 @@ export const GameStore = signalStore(
       const players = store.players();
       return players.length > 0 && players.every((p) => p.deck || p.isGuest);
     },
+
     resetGame() {
       patchState(store, initialState);
     },
-
     startGameSetup() {
       const players = Array.from({ length: store.playerCount() }, (_, i) => ({
         id: i + 1,
@@ -126,13 +130,28 @@ export const GameStore = signalStore(
         ),
         deck: null,
         isGuest: false,
+        turnSeat: null,
       }));
       patchState(store, { gameState: 'SETUP', players });
     },
     playGame() {
-      patchState(store, { gameState: 'PLAY' });
+      patchState(store, { gameState: 'PLAY', turnSeat: null });
     },
   })),
+
+  // Turn methods
+  withMethods((store) => ({
+    setTurn(playerSeat: number) {
+      patchState(store, { turnSeat: playerSeat });
+    },
+    passTurn() {
+      patchState(store, ({ turnSeat, players }) => ({
+        turnSeat: ((turnSeat ?? -1) + 1) % players.length,
+      }));
+    },
+  })),
+
+  // Gameplay methods
   withMethods((store) => ({
     setActionSelect(sourceSeat: number, targetSeat: number) {
       const actionSelect = { sourceSeat, targetSeat };
@@ -151,9 +170,6 @@ export const GameStore = signalStore(
       const { count, options } = action;
       const numAlivePlayers = store.players().length;
 
-      // export type ActionType = 'Damage' | 'Healing' | 'Lifelink' | 'Infect' | 'Drain' | 'Extort';
-      // export type ActionTarget = 'Player' | 'All' | 'Opponents';
-      // export type ActionTag = 'Commander';
       patchState(store, ({ players }) => ({
         actionSelect: null,
         players: players.map((player, seat) => {
@@ -204,7 +220,7 @@ export const GameStore = signalStore(
 
           let life = player.life;
           let infect = player.infect;
-          let commanderDmg = {...player.commanderDmg};
+          let commanderDmg = { ...player.commanderDmg };
 
           switch (optionsType) {
             case 'Damage': {

@@ -21,10 +21,18 @@ import { LifeTotal } from './life-total/life-total';
     <div class="absolute inset-0 bg-black/55"></div>
 
     <div class="relative z-10 flex h-full flex-col items-center justify-center">
-      @if (actionSelect()?.targetSeat === seat()) {
-        <app-action-selector (apply)="applyAction($event)" (cancel)="cancelAction()" />
+      @if (playersTurn() === null) {
+        <div (click)="setTurn()"> ME FIRST!! </div>
       } @else {
-        <app-life-total [seat]="seat()" />
+        @if (actionSelect()?.targetSeat === seat()) {
+          <app-action-selector (apply)="applyAction($event)" (cancel)="cancelAction()" />
+        } @else {
+          @if (playersTurn() === seat()) {
+            MY TURN | <div (click)="passTurn()">PASS TURN</div>
+          }
+          <app-life-total [seat]="seat()" />
+
+        }
       }
     </div>
   `,
@@ -37,6 +45,7 @@ export class Player {
 
   commanderUrl = computed(() => this.gameStore.playerAt(this.seat())?.deck?.commander.url ?? null);
   actionSelect = computed(() => this.gameStore.actionSelect());
+  playersTurn = computed(() => this.gameStore.turnSeat());
 
   applyAction(action: ActionSubmission) {
     this.gameStore.applyAction(action);
@@ -44,5 +53,13 @@ export class Player {
 
   cancelAction() {
     this.gameStore.clearActionSelect();
+  }
+
+  setTurn() {
+    this.gameStore.setTurn(this.seat());
+  }
+
+  passTurn() {
+    this.gameStore.passTurn();
   }
 }

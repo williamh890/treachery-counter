@@ -92,6 +92,14 @@ const FADE_MS = 200;
       </div>
     }
 
+    @if (playersTurn() === null) {
+      <div
+        class="pointer-events-none absolute left-1/2 top-1/2 z-10 flex -translate-x-1/2 -translate-y-1/2 items-center gap-3"
+      >
+        <button matButton="elevated" class="pointer-events-auto" (click)="setRandomPlayersTurn()">Random</button>
+      </div>
+    }
+
     @if (drag(); as d) {
       <app-drag-arrow [start]="d.start" [end]="d.current" [fading]="arrowFading()" />
     }
@@ -106,6 +114,7 @@ export class Game {
   protected drag = signal<ActiveDrag | null>(null);
   protected arrowFading = signal(false);
 
+  playersTurn = computed(() => this.game.turnSeat());
   /** The seat the arrow is currently hovering over (never the source). */
   protected dropTarget = computed(() => {
     const d = this.drag();
@@ -134,6 +143,13 @@ export class Game {
 
   back() {
     this.router.navigate(['/start-game']);
+  }
+
+  setRandomPlayersTurn() {
+    console.log('RANDOM YO');
+    const numPlayers = this.game.players().length;
+    this.game.setTurn(Math.floor(Math.random() * numPlayers));
+
   }
 
   // --- Drag between players ---
