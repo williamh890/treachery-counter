@@ -133,7 +133,7 @@ export const GameStore = signalStore(
       patchState(store, { gameState: 'SETUP', players, turnSeat: null });
     },
     playGame() {
-      patchState(store, { gameState: 'PLAY', turnSeat: null });
+      patchState(store, { gameState: 'PLAY', turnSeat: null, actionSelect: null });
     },
   })),
 
