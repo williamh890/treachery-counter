@@ -3,11 +3,11 @@ import { Component, computed, inject, input } from '@angular/core';
 import { GameStore } from '@state/game.store';
 import { ActionSelector, ActionSubmission } from './action-selector/action-selector';
 import { LifeTotal } from './life-total/life-total';
+import { Elimination } from './elimination/elimination';
 
 @Component({
   selector: 'app-player',
   host: { class: 'relative block h-full w-full overflow-hidden bg-neutral-800 text-white' },
-  // src/app/features/game/player/player.ts
   template: `
     @if (commanderUrl(); as url) {
       <img
@@ -38,11 +38,17 @@ import { LifeTotal } from './life-total/life-total';
       } @else if (actionSelect()?.targetSeat === seat()) {
         <app-action-selector (apply)="applyAction($event)" (cancel)="cancelAction()" />
       } @else {
-        <app-life-total [seat]="seat()" />
+        @if (player(); as p) {
+          @if (p.status !== 'eliminated') {
+            <app-life-total [seat]="seat()" (eliminate)="eliminatePlayer()" />
+          } @else {
+            <app-elimination [name]="p.name" (revive)="protectPlayer()"/>
+          }
+        }
       }
     </div>
   `,
-  imports: [ActionSelector, LifeTotal],
+  imports: [ActionSelector, LifeTotal, Elimination],
 })
 export class Player {
   private gameStore = inject(GameStore);
@@ -52,7 +58,8 @@ export class Player {
   commanderUrl = computed(() => this.gameStore.playerAt(this.seat())?.deck?.commander.url ?? null);
   actionSelect = computed(() => this.gameStore.actionSelect());
   playersTurn = computed(() => this.gameStore.turnSeat());
-  playerName = computed(() => this.gameStore.playerAt(this.seat())?.name);
+  player = computed(() => this.gameStore.playerAt(this.seat()));
+  playerName = computed(() => this.player()?.name);
 
   setTurn() {
     this.gameStore.setTurn(this.seat());
@@ -64,5 +71,13 @@ export class Player {
 
   cancelAction() {
     this.gameStore.clearActionSelect();
+  }
+
+  protectPlayer() {
+    this.gameStore.protectPlayer(this.seat());
+  }
+
+  eliminatePlayer() {
+    this.gameStore.eliminatePlayer(this.seat());
   }
 }

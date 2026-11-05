@@ -1,5 +1,5 @@
 // src/app/state/game.store.ts
-import { computed, inject } from '@angular/core';
+import { computed, inject, effect, untracked } from '@angular/core';
 import { Deck } from '@models/deck';
 import {
   signalStore,
@@ -14,9 +14,12 @@ import { GroupStore } from './group.store';
 import { ProfileStore } from './profile.store';
 import { ActionSubmission } from '../game/player/action-selector/action-selector';
 
+export type PlayerStatus = 'alive' | 'dead' | 'protected' | 'eliminated';
+
 export type Player = {
   id: number;
   name: string;
+  status: PlayerStatus;
   life: number;
   infect: number;
   commanderDmg: Record<number, number>;
@@ -50,6 +53,8 @@ const initialState: GameState = {
   turnSeat: null,
 };
 
+export type DeathDecision = { kill: number[]; protect: number[] };
+
 const MIN_PLAYERS = 2;
 const MAX_PLAYERS = 8;
 
@@ -77,13 +82,6 @@ export const GameStore = signalStore(
           : [],
       { equal: (a, b) => a.length === b.length && a.every((id, i) => id === b[i]) },
     ),
-  })),
-
-  // at the end of the signalStore(...) chain
-  withHooks((store, profiles = inject(ProfileStore)) => ({
-    onInit() {
-      profiles.watchDecks(store.deckUserIds);
-    },
   })),
 
   // Game setup methods
@@ -120,9 +118,10 @@ export const GameStore = signalStore(
       patchState(store, initialState);
     },
     startGameSetup() {
-      const players = Array.from({ length: store.playerCount() }, (_, i) => ({
+      const players = Array.from({ length: store.playerCount() }, (_, i): Player => ({
         id: i + 1,
         name: `Player ${i + 1}`,
+        status: 'alive',
         life: store.startingLife(),
         infect: 0,
         commanderDmg: Object.fromEntries(
@@ -130,9 +129,8 @@ export const GameStore = signalStore(
         ),
         deck: null,
         isGuest: false,
-        turnSeat: null,
       }));
-      patchState(store, { gameState: 'SETUP', players });
+      patchState(store, { gameState: 'SETUP', players, turnSeat: null });
     },
     playGame() {
       patchState(store, { gameState: 'PLAY', turnSeat: null });
@@ -244,6 +242,70 @@ export const GameStore = signalStore(
           return { ...player, life, infect, commanderDmg };
         }),
       }));
+    },
+    applyDeathDescision(decision: DeathDecision) {
+      const { kill, protect } = decision;
+
+      patchState(store, ({ players }) => ({
+        players: players.map((player, seat) => {
+          if (kill.includes(seat)) {
+            return { ...player, status: 'eliminated' };
+          } else if (protect.includes(seat)) {
+            return { ...player, status: 'protected' };
+          } else {
+            return player;
+          }
+        }),
+      }));
+    },
+    protectPlayer(seat: number) {
+      patchState(store, ({ players }) => ({
+        players: players.map((p, i) => (i === seat ? { ...p, status: 'protected' } : p)),
+      }));
+    },
+
+    eliminatePlayer(seat: number) {
+      patchState(store, ({ players }) => ({
+        players: players.map((p, i) => (i === seat ? { ...p, status: 'eliminated' } : p)),
+      }));
+    },
+  })),
+
+  withHooks((store, profiles = inject(ProfileStore)) => ({
+    onInit() {
+      profiles.watchDecks(store.deckUserIds);
+
+      const isLethal = (p: Player) =>
+        p.life <= 0 || p.infect >= 10 || Object.values(p.commanderDmg).some((d) => d >= 21);
+
+      const nextStatus = (p: Player): PlayerStatus => {
+        const lethal = isLethal(p);
+        if (p.status === 'alive' && lethal) return 'dead'; // pending confirm
+        if ((p.status === 'dead' || p.status === 'protected') && !lethal) return 'alive';
+        return p.status; // 'eliminated' only changes through an explicit action
+      };
+
+      effect(() => {
+        const players = store.players();
+
+        // Nothing to fix: return so our own patch doesn't retrigger forever
+        if (players.every((p) => nextStatus(p) === p.status)) return;
+
+        untracked(() =>
+          patchState(store, (s) => ({
+            players: s.players.map((p) => ({ ...p, status: nextStatus(p) })),
+          })),
+        );
+      });
+
+      effect(() => {
+        const turn = store.turnSeat();
+        const players = store.players();
+
+        if (turn !== null && players[turn]?.status === 'eliminated') {
+          untracked(() => store.passTurn());
+        }
+      });
     },
   })),
 );

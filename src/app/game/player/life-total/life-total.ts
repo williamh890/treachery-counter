@@ -1,5 +1,5 @@
 // src/app/features/game/player/life-total/life-total.ts
-import { Component, computed, inject, input } from '@angular/core';
+import { Component, computed, inject, input, output } from '@angular/core';
 import { GameStore } from '@state/game.store';
 
 const INFECT_LETHAL = 10;
@@ -15,6 +15,17 @@ const COMMANDER_LETHAL = 21;
         class="pointer-events-none absolute inset-0 border-4 border-indigo-400/80"
         aria-hidden="true"
       ></div>
+    }
+
+    @if (player()?.status === 'protected') {
+      <button
+        type="button"
+        class="absolute right-[3cqmin] top-[3cqmin] flex h-9 touch-manipulation items-center gap-1.5 rounded-full border border-red-400/70 bg-red-950/80 px-3.5 text-sm font-semibold text-red-100 shadow-md backdrop-blur-sm transition active:scale-95 active:bg-red-900 [-webkit-tap-highlight-color:transparent]"
+        (click)="eliminate.emit()"
+      >
+        <span aria-hidden="true">☠</span>
+        Eliminate
+      </button>
     }
 
     <span class="text-sm opacity-80 [text-shadow:0_1px_3px_rgb(0_0_0/0.8)]">
@@ -85,6 +96,7 @@ export class LifeTotal {
   private gameStore = inject(GameStore);
 
   seat = input.required<number>();
+  eliminate = output<void>();
 
   player = computed(() => this.gameStore.playerAt(this.seat()));
 

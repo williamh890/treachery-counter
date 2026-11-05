@@ -1,12 +1,13 @@
 import { Component, DestroyRef, computed, effect, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { Router } from '@angular/router';
-import { GameStore } from '@state/game.store';
+import { GameStore, DeathDecision } from '@state/game.store';
 import { PlayerSetup } from './player-setup/player-setup';
 import { Player } from './player/player';
 import { DragArrow, Point } from './drag-arrow';
 import { ProfileStore } from '@state/profile.store';
 import { GroupStore } from '@state/group.store';
+import { DeadPlayersDialog } from "./dead-player-dialog/dead-player-dialog";
 
 type Tile = {
   playerIndex: number;
@@ -39,7 +40,7 @@ const FADE_MS = 200;
 
 @Component({
   selector: 'app-player-grid',
-  imports: [PlayerSetup, Player, DragArrow, MatButtonModule],
+  imports: [PlayerSetup, Player, DragArrow, MatButtonModule, DeadPlayersDialog],
   host: {
     class: 'relative flex min-h-0 flex-1',
     '(pointerdown)': 'onPointerDown($event)',
@@ -90,14 +91,16 @@ const FADE_MS = 200;
           <button matButton="filled" class="pointer-events-auto" (click)="start()">Start</button>
         }
       </div>
-    }
-
-    @if (playersTurn() === null) {
+    } @else if (playersTurn() === null) {
       <div
         class="pointer-events-none absolute left-1/2 top-1/2 z-10 flex -translate-x-1/2 -translate-y-1/2 items-center gap-3"
       >
-        <button matButton="elevated" class="pointer-events-auto" (click)="setRandomPlayersTurn()">Random</button>
+        <button matButton="elevated" class="pointer-events-auto" (click)="setRandomPlayersTurn()">
+          Random
+        </button>
       </div>
+    } @else if (deadPlayers()?.length > 0) {
+      <app-dead-players-dialog (resolved)="onConfirmDeath($event)" />
     }
 
     @if (drag(); as d) {
@@ -115,6 +118,9 @@ export class Game {
   protected arrowFading = signal(false);
 
   playersTurn = computed(() => this.game.turnSeat());
+  deadPlayers = computed(
+    () => this.game.players()?.filter((player) => player.status === 'dead') ?? [],
+  );
   /** The seat the arrow is currently hovering over (never the source). */
   protected dropTarget = computed(() => {
     const d = this.drag();
@@ -146,9 +152,12 @@ export class Game {
   }
 
   setRandomPlayersTurn() {
-    console.log('RANDOM YO');
     const numPlayers = this.game.players().length;
     this.game.setTurn(Math.floor(Math.random() * numPlayers));
+  }
+
+  onConfirmDeath(decision: DeathDecision) {
+    this.game.applyDeathDescision(decision);
   }
 
   // --- Drag between players ---
