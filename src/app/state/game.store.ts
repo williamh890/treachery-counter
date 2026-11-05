@@ -1,13 +1,14 @@
 // src/app/state/game.store.ts
-import { computed, inject, effect, untracked } from '@angular/core';
+import { computed, effect, inject, signal, untracked } from '@angular/core';
 import { Deck } from '@models/deck';
 import {
-  signalStore,
-  withState,
-  withMethods,
-  withComputed,
   patchState,
+  signalStore,
+  withComputed,
   withHooks,
+  withMethods,
+  withProps,
+  withState,
 } from '@ngrx/signals';
 import { withStorageSync } from './with-storage-sync';
 import { GroupStore } from './group.store';
@@ -43,6 +44,9 @@ type GameState = {
   turnSeat: number | null;
 };
 
+/** What undo restores. UI state (actionSelect, gameState) is deliberately left out. */
+type Snapshot = Pick<GameState, 'players' | 'turnSeat'>;
+
 const initialState: GameState = {
   gameState: 'SETUP',
   playerCount: 4,
@@ -57,6 +61,7 @@ export type DeathDecision = { kill: number[]; protect: number[] };
 
 const MIN_PLAYERS = 2;
 const MAX_PLAYERS = 8;
+const MAX_HISTORY = 50;
 
 export const GameStore = signalStore(
   { providedIn: 'root' },
@@ -72,7 +77,6 @@ export const GameStore = signalStore(
     /** The only accounts that can take a seat: members of the selected group. */
     seatUsers: computed(() => group()?.members ?? []),
   })),
-  // a third withComputed, after the one that defines `group`
   withComputed((store) => ({
     /** Uids to keep deck listeners open for: only while seats are being set up. */
     deckUserIds: computed(
@@ -82,6 +86,30 @@ export const GameStore = signalStore(
           : [],
       { equal: (a, b) => a.length === b.length && a.every((id, i) => id === b[i]) },
     ),
+  })),
+
+  // Undo history. A plain signal prop, not state, so withStorageSync never persists it.
+  withProps(() => ({ _history: signal<Snapshot[]>([]) })),
+  withComputed(({ _history }) => ({
+    canUndo: computed(() => _history().length > 0),
+  })),
+  withMethods((store) => ({
+    /** Call at the start of every user-level action, before changing anything. */
+    _checkpoint() {
+      store._history.update((h) =>
+        [...h, { players: store.players(), turnSeat: store.turnSeat() }].slice(-MAX_HISTORY),
+      );
+    },
+    _clearHistory() {
+      store._history.set([]);
+    },
+    undo() {
+      const last = store._history().at(-1);
+      if (!last) return;
+      store._history.update((h) => h.slice(0, -1));
+      // actionSelect is cleared so a restored state can't leave the selector open
+      patchState(store, { ...last, actionSelect: null });
+    },
   })),
 
   // Game setup methods
@@ -115,9 +143,11 @@ export const GameStore = signalStore(
     },
 
     resetGame() {
+      store._clearHistory();
       patchState(store, initialState);
     },
     startGameSetup() {
+      store._clearHistory();
       const players = Array.from({ length: store.playerCount() }, (_, i): Player => ({
         id: i + 1,
         name: `Player ${i + 1}`,
@@ -133,21 +163,31 @@ export const GameStore = signalStore(
       patchState(store, { gameState: 'SETUP', players, turnSeat: null });
     },
     playGame() {
+      store._clearHistory();
       patchState(store, { gameState: 'PLAY', turnSeat: null, actionSelect: null });
     },
   })),
 
   // Turn methods
-  withMethods((store) => ({
-    setTurn(playerSeat: number) {
-      patchState(store, { turnSeat: playerSeat });
-    },
-    passTurn() {
+  withMethods((store) => {
+    const advanceTurn = () =>
       patchState(store, ({ turnSeat, players }) => ({
         turnSeat: ((turnSeat ?? -1) + 1) % players.length,
       }));
-    },
-  })),
+
+    return {
+      /** For the turn-skip effect: moves the turn without creating an undo step. */
+      _advanceTurn: advanceTurn,
+      setTurn(playerSeat: number) {
+        store._checkpoint();
+        patchState(store, { turnSeat: playerSeat });
+      },
+      passTurn() {
+        store._checkpoint();
+        advanceTurn();
+      },
+    };
+  }),
 
   // Gameplay methods
   withMethods((store) => ({
@@ -163,10 +203,11 @@ export const GameStore = signalStore(
       if (!select) {
         return;
       }
+      store._checkpoint(); // after the guard, so no-ops don't create undo steps
 
       const { targetSeat, sourceSeat } = select;
       const { count, options } = action;
-      const numAlivePlayers = store.players().length;
+      const numAlivePlayers = store.players().filter((p) => p.status !== 'eliminated').length;
 
       patchState(store, ({ players }) => ({
         actionSelect: null,
@@ -218,14 +259,14 @@ export const GameStore = signalStore(
 
           let life = player.life;
           let infect = player.infect;
-          let commanderDmg = { ...player.commanderDmg };
+          const commanderDmg = { ...player.commanderDmg };
 
           switch (optionsType) {
             case 'Damage': {
               life -= playerCount;
 
               if (options.tags.includes('Commander')) {
-                commanderDmg[sourceSeat] += playerCount;
+                commanderDmg[sourceSeat] = (commanderDmg[sourceSeat] ?? 0) + playerCount;
               }
               break;
             }
@@ -247,7 +288,7 @@ export const GameStore = signalStore(
       const { kill, protect } = decision;
 
       patchState(store, ({ players }) => ({
-        players: players.map((player, seat) => {
+        players: players.map((player, seat): Player => {
           if (kill.includes(seat)) {
             return { ...player, status: 'eliminated' };
           } else if (protect.includes(seat)) {
@@ -259,14 +300,15 @@ export const GameStore = signalStore(
       }));
     },
     protectPlayer(seat: number) {
+      store._checkpoint();
       patchState(store, ({ players }) => ({
-        players: players.map((p, i) => (i === seat ? { ...p, status: 'protected' } : p)),
+        players: players.map((p, i): Player => (i === seat ? { ...p, status: 'protected' } : p)),
       }));
     },
-
     eliminatePlayer(seat: number) {
+      store._checkpoint();
       patchState(store, ({ players }) => ({
-        players: players.map((p, i) => (i === seat ? { ...p, status: 'eliminated' } : p)),
+        players: players.map((p, i): Player => (i === seat ? { ...p, status: 'eliminated' } : p)),
       }));
     },
   })),
@@ -285,6 +327,7 @@ export const GameStore = signalStore(
         return p.status; // 'eliminated' only changes through an explicit action
       };
 
+      // Keeps statuses in line with the counters. Runs after changes and after undo.
       effect(() => {
         const players = store.players();
 
@@ -298,12 +341,14 @@ export const GameStore = signalStore(
         );
       });
 
+      // Moves the turn off an eliminated player. Part of the same undo step as the
+      // elimination, so it must not checkpoint.
       effect(() => {
         const turn = store.turnSeat();
         const players = store.players();
 
         if (turn !== null && players[turn]?.status === 'eliminated') {
-          untracked(() => store.passTurn());
+          untracked(() => store._advanceTurn());
         }
       });
     },

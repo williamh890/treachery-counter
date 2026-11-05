@@ -79,8 +79,18 @@ const COMMANDER_LETHAL = 21;
     }
 
     @if (isMyTurn()) {
-      <!-- Pass turn: full width across the bottom -->
-      <div class="absolute inset-x-0 bottom-0 flex p-2">
+      <!-- Undo + pass turn: full width across the bottom -->
+      <div class="absolute inset-x-0 bottom-0 flex gap-2 p-2">
+        <button
+          type="button"
+          class="flex min-h-14 touch-manipulation items-center justify-center gap-1.5 rounded-full border-2 border-neutral-500 bg-neutral-800 px-5 text-lg font-semibold text-white transition active:bg-neutral-700 disabled:opacity-30 disabled:active:bg-neutral-800 [-webkit-tap-highlight-color:transparent]"
+          aria-label="Undo last action"
+          [disabled]="!canUndo()"
+          (click)="undo()"
+        >
+          <span aria-hidden="true">↶</span>
+          Undo
+        </button>
         <button
           type="button"
           class="min-h-14 flex-1 touch-manipulation rounded-full border-2 border-indigo-300 bg-indigo-500 text-lg font-semibold text-white transition active:bg-indigo-400 [-webkit-tap-highlight-color:transparent]"
@@ -94,6 +104,7 @@ const COMMANDER_LETHAL = 21;
 })
 export class LifeTotal {
   private gameStore = inject(GameStore);
+  canUndo = this.gameStore.canUndo;
 
   seat = input.required<number>();
   eliminate = output<void>();
@@ -121,6 +132,10 @@ export class LifeTotal {
       })
       .filter((hit) => hit.dmg > 0),
   );
+
+  undo() {
+    this.gameStore.undo();
+  }
 
   passTurn() {
     this.gameStore.passTurn();
