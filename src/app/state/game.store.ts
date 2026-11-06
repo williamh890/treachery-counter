@@ -173,6 +173,7 @@ export const GameStore = signalStore(
     const advanceTurn = () =>
       patchState(store, ({ turnSeat, players }) => ({
         turnSeat: ((turnSeat ?? -1) + 1) % players.length,
+        actionSelect: null
       }));
 
     return {
@@ -180,7 +181,7 @@ export const GameStore = signalStore(
       _advanceTurn: advanceTurn,
       setTurn(playerSeat: number) {
         store._checkpoint();
-        patchState(store, { turnSeat: playerSeat });
+        patchState(store, { turnSeat: playerSeat, actionSelect: null });
       },
       passTurn() {
         store._checkpoint();

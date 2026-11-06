@@ -39,11 +39,19 @@ export class Groups {
   protected readonly confirmingDelete = signal(false);
   private readonly selectedId = signal<string | null>(null);
 
+  /** Mobile only: whether the detail pane is showing instead of the list. */
+  private readonly detailOpen = signal(false);
+
   /** The chosen group, falling back to the first one (e.g. after a delete or leave). */
   protected readonly selectedGroup = computed(() => {
     const groups = this.groups();
     return groups.find((g) => g.id === this.selectedId()) ?? groups[0] ?? null;
   });
+
+  /** Mobile only: true when the detail pane should replace the list. */
+  protected readonly showDetail = computed(
+    () => this.detailOpen() && this.selectedGroup() !== null,
+  );
 
   protected readonly isOwner = computed(
     () => !!this.currentUid() && this.selectedGroup()?.ownerId === this.currentUid(),
@@ -63,6 +71,12 @@ export class Groups {
 
   protected select(groupId: string) {
     this.selectedId.set(groupId);
+    this.detailOpen.set(true);
+    this.confirmingDelete.set(false);
+  }
+
+  protected closeDetail() {
+    this.detailOpen.set(false);
     this.confirmingDelete.set(false);
   }
 
@@ -87,13 +101,16 @@ export class Groups {
   protected leaveGroup(groupId: string) {
     const uid = this.currentUid();
     if (!uid) return;
-    void this.run(() => this.groupStore.removeMember(groupId, uid));
+    void this.run(async () => {
+      await this.groupStore.removeMember(groupId, uid);
+      this.closeDetail();
+    });
   }
 
   protected deleteGroup(groupId: string) {
     void this.run(async () => {
       await this.groupStore.deleteGroup(groupId);
-      this.confirmingDelete.set(false);
+      this.closeDetail();
     });
   }
 

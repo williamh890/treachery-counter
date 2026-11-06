@@ -1,8 +1,11 @@
-<div class="flex h-full gap-4 overflow-hidden p-4">
-  <!-- Group list -->
-  <section class="flex w-96 shrink-0 flex-col gap-3 overflow-hidden">
+<div class="flex h-full flex-col gap-4 overflow-hidden p-4 md:flex-row">
+  <!-- Group list: on mobile, hidden once a group is opened -->
+  <section
+    class="flex w-full shrink-0 flex-col gap-3 overflow-hidden md:w-96"
+    [class]="showDetail() ? 'max-md:hidden' : ''"
+  >
     <div class="flex items-start gap-2">
-      <mat-form-field class="flex-1" subscriptSizing="dynamic">
+      <mat-form-field class="min-w-0 flex-1" subscriptSizing="dynamic">
         <mat-label>New group name</mat-label>
         <input
           matInput
@@ -15,11 +18,12 @@
       <button
         mat-flat-button
         class="!h-14"
+        aria-label="Create group"
         [disabled]="!canCreate()"
         (click)="createGroup()"
       >
         <mat-icon>group_add</mat-icon>
-        Create group
+        <span class="max-sm:hidden">Create group</span>
       </button>
     </div>
 
@@ -52,13 +56,24 @@
     </div>
   </section>
 
-  <!-- Selected group -->
+  <!-- Selected group: on mobile, hidden until a group is opened -->
   <section
     class="flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-[var(--mat-sys-outline-variant)] p-4"
+    [class]="showDetail() ? '' : 'max-md:hidden'"
   >
     @if (selectedGroup(); as group) {
       <header class="flex items-center justify-between gap-3">
-        <div class="min-w-0">
+        <!-- Back to list, mobile only -->
+        <button
+          mat-icon-button
+          class="md:!hidden"
+          aria-label="Back to groups"
+          (click)="closeDetail()"
+        >
+          <mat-icon>arrow_back</mat-icon>
+        </button>
+
+        <div class="min-w-0 flex-1">
           <h2 class="truncate text-2xl font-medium">{{ group.name }}</h2>
           <p class="opacity-70">
             {{ group.members.length }} {{ group.members.length === 1 ? 'member' : 'members' }}
@@ -68,11 +83,12 @@
         <button
           mat-flat-button
           class="!h-12"
+          aria-label="Add member"
           [matMenuTriggerFor]="addMenu"
           [disabled]="busy() || availableUsers().length === 0"
         >
           <mat-icon>person_add</mat-icon>
-          Add member
+          <span class="max-sm:hidden">Add member</span>
         </button>
         <mat-menu #addMenu="matMenu">
           @for (user of availableUsers(); track user.uid) {
@@ -88,7 +104,7 @@
           <li
             class="flex min-h-16 items-center justify-between gap-3 border-b border-[var(--mat-sys-outline-variant)] px-2"
           >
-            <span class="truncate text-lg">
+            <span class="min-w-0 truncate text-lg">
               {{ member.username }}
               @if (member.uid === currentUid()) {
                 <span class="opacity-70">(you)</span>
@@ -100,22 +116,25 @@
             } @else {
               <button
                 mat-stroked-button
-                class="!h-12"
+                class="!h-12 shrink-0"
+                [attr.aria-label]="'Remove ' + member.username"
                 [disabled]="busy()"
                 (click)="removeMember(group.id, member.uid)"
               >
                 <mat-icon>person_remove</mat-icon>
-                Remove
+                <span class="max-sm:hidden">Remove</span>
               </button>
             }
           </li>
         }
       </ul>
 
-      <footer class="mt-4 flex items-center justify-end gap-2 pt-2">
+      <footer class="mt-4 flex flex-wrap items-center justify-end gap-2 pt-2">
         @if (isOwner()) {
           @if (confirmingDelete()) {
-            <span class="mr-2">Delete {{ group.name }} for everyone?</span>
+            <span class="mr-2 w-full text-right sm:w-auto">
+              Delete {{ group.name }} for everyone?
+            </span>
             <button mat-button class="!h-12" (click)="confirmingDelete.set(false)">
               Keep group
             </button>
