@@ -31,6 +31,7 @@ export type Player = {
 export type ActionSelect = {
   sourceSeat: number;
   targetSeat: number;
+  protectSeats: number[];
 };
 
 type GameState = {
@@ -173,7 +174,7 @@ export const GameStore = signalStore(
     const advanceTurn = () =>
       patchState(store, ({ turnSeat, players }) => ({
         turnSeat: ((turnSeat ?? -1) + 1) % players.length,
-        actionSelect: null
+        actionSelect: null,
       }));
 
     return {
@@ -193,8 +194,26 @@ export const GameStore = signalStore(
   // Gameplay methods
   withMethods((store) => ({
     setActionSelect(sourceSeat: number, targetSeat: number) {
-      const actionSelect = { sourceSeat, targetSeat };
-      patchState(store, { actionSelect });
+      patchState(store, {
+        actionSelect: { sourceSeat, targetSeat, protectSeats: [] },
+      });
+    },
+
+    toggleProtectFromAction(seat: number) {
+      const actionSelect = store.actionSelect();
+      if (!actionSelect) {
+        return;
+      }
+
+      const { protectSeats } = actionSelect;
+      patchState(store, {
+        actionSelect: {
+          ...actionSelect,
+          protectSeats: protectSeats.includes(seat)
+            ? protectSeats.filter((s) => s !== seat)
+            : [...protectSeats, seat],
+        },
+      });
     },
     clearActionSelect() {
       patchState(store, { actionSelect: null });
@@ -206,55 +225,49 @@ export const GameStore = signalStore(
       }
       store._checkpoint(); // after the guard, so no-ops don't create undo steps
 
-      const { targetSeat, sourceSeat } = select;
+      const { targetSeat, sourceSeat, protectSeats } = select;
       const { count, options } = action;
-      const numAlivePlayers = store.players().filter((p) => p.status !== 'eliminated').length;
+      const current = store.players();
+
+      // Seats the action is aimed at. Group targets skip eliminated players;
+      // an explicit single target is always honored.
+      const isTargeted = (seat: number): boolean => {
+        const inGame = current[seat]?.status !== 'eliminated';
+        switch (options.target) {
+          case 'Player':
+            return seat === targetSeat;
+          case 'All':
+            return inGame;
+          case 'Opponents':
+            return inGame && seat !== sourceSeat;
+        }
+      };
+
+      // Protected seats are excluded from the action entirely
+      const isExcluded = (seat: number) => protectSeats.includes(seat);
+      const isHit = (seat: number) => isTargeted(seat) && !isExcluded(seat);
+
+      const hitCount = current.filter((_, seat) => isHit(seat)).length;
+
+      // What the source gains is tied to harm that actually landed
+      const sourceGain = (() => {
+        switch (options.type) {
+          case 'Extort':
+            return count * hitCount;
+          case 'Drain':
+          case 'Lifelink':
+            return hitCount > 0 ? count : 0;
+          default:
+            return 0;
+        }
+      })();
 
       patchState(store, ({ players }) => ({
         actionSelect: null,
-        players: players.map((player, seat) => {
-          let shouldApply = false;
-          const isTarget = seat === targetSeat;
-          const isSource = seat === sourceSeat;
-
-          let playerCount = count;
-          let optionsType = options.type;
-
-          switch (options.target) {
-            case 'Player': {
-              shouldApply = isTarget;
-              break;
-            }
-            case 'All': {
-              shouldApply = true;
-              break;
-            }
-            case 'Opponents': {
-              shouldApply = !isSource;
-              break;
-            }
-          }
-
-          switch (options.type) {
-            case 'Drain': {
-              shouldApply = true;
-              optionsType = isSource ? 'Healing' : 'Damage';
-              break;
-            }
-            case 'Extort': {
-              shouldApply = true;
-              optionsType = isSource ? 'Healing' : 'Damage';
-              playerCount = isSource ? count * (numAlivePlayers - 1) : count;
-              break;
-            }
-            case 'Lifelink': {
-              shouldApply = true;
-              optionsType = isSource ? 'Healing' : 'Damage';
-              break;
-            }
-          }
-
-          if (!shouldApply) {
+        players: players.map((player, seat): Player => {
+          const hit = isHit(seat);
+          const gains = seat === sourceSeat && sourceGain > 0 && !isExcluded(seat);
+          if (!hit && !gains) {
             return player;
           }
 
@@ -262,23 +275,24 @@ export const GameStore = signalStore(
           let infect = player.infect;
           const commanderDmg = { ...player.commanderDmg };
 
-          switch (optionsType) {
-            case 'Damage': {
-              life -= playerCount;
+          if (hit) {
+            switch (options.type) {
+              case 'Healing':
+                life += count;
+                break;
+              case 'Infect':
+                infect += count;
+                break;
+              default: // Damage, Drain, Extort, Lifelink
+                life -= count;
+                if (options.tags.includes('Commander')) {
+                  commanderDmg[sourceSeat] = (commanderDmg[sourceSeat] ?? 0) + count;
+                }
+            }
+          }
 
-              if (options.tags.includes('Commander')) {
-                commanderDmg[sourceSeat] = (commanderDmg[sourceSeat] ?? 0) + playerCount;
-              }
-              break;
-            }
-            case 'Healing': {
-              life += playerCount;
-              break;
-            }
-            case 'Infect': {
-              infect += playerCount;
-              break;
-            }
+          if (gains) {
+            life += sourceGain;
           }
 
           return { ...player, life, infect, commanderDmg };
@@ -352,6 +366,18 @@ export const GameStore = signalStore(
           untracked(() => store._advanceTurn());
         }
       });
+    },
+  })),
+  withProps(() => ({ _optionsOpen: signal(false) })),
+  withComputed(({ _optionsOpen }) => ({
+    optionsOpen: _optionsOpen.asReadonly(),
+  })),
+  withMethods((store) => ({
+    openOptions() {
+      store._optionsOpen.set(true);
+    },
+    closeOptions() {
+      store._optionsOpen.set(false);
     },
   })),
 );

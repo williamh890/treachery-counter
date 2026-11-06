@@ -7,7 +7,8 @@ import { Player } from './player/player';
 import { DragArrow, Point } from './drag-arrow';
 import { ProfileStore } from '@state/profile.store';
 import { GroupStore } from '@state/group.store';
-import { DeadPlayersDialog } from "./dead-player-dialog/dead-player-dialog";
+import { DeadPlayersDialog } from './dead-player-dialog/dead-player-dialog';
+import { GameOptionsDialog } from './game-options-dialog/game-options-dialog';
 
 type Tile = {
   playerIndex: number;
@@ -35,12 +36,12 @@ interface Press {
 
 const DRAG_THRESHOLD_PX = 8;
 /** A finger holding a button jitters; don't mistake that for a drag. */
-const CONTROL_DRAG_THRESHOLD_PX = 16;
-const FADE_MS = 200;
+const CONTROL_DRAG_THRESHOLD_PX = 64;
+const FADE_MS = 500;
 
 @Component({
   selector: 'app-player-grid',
-  imports: [PlayerSetup, Player, DragArrow, MatButtonModule, DeadPlayersDialog],
+  imports: [PlayerSetup, Player, DragArrow, MatButtonModule, DeadPlayersDialog, GameOptionsDialog],
   host: {
     class: 'relative flex min-h-0 flex-1',
     '(pointerdown)': 'onPointerDown($event)',
@@ -49,6 +50,13 @@ const FADE_MS = 200;
     '(pointercancel)': 'onPointerCancel($event)',
   },
   template: `
+    @if (game.optionsOpen()) {
+      <app-game-options-dialog
+        (finish)="finishGame($event)"
+        (stop)="stopGame()"
+        (closed)="game.closeOptions()"
+      />
+    }
     @for (column of columns(); track $index) {
       <div class="flex min-h-0 min-w-0 flex-1 flex-col">
         @for (tile of column; track tile.playerIndex) {
@@ -297,5 +305,19 @@ export class Game {
 
     const isTopTile = column.indexOf(index) === 0;
     return isTopTile ? 2 : 0;
+  }
+
+  finishGame(winners: number[]) {
+    // TODO: record `winners` / save the game here
+    console.log(winners);
+    this.game.closeOptions();
+    this.game.resetGame();
+    this.router.navigateByUrl('/home');
+  }
+
+  stopGame() {
+    this.game.closeOptions();
+    this.game.resetGame();
+    this.router.navigateByUrl('/home');
   }
 }

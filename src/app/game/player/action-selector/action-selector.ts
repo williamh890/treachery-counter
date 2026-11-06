@@ -4,13 +4,13 @@ import { ActionOptions } from './action-options/action-options';
 import { ActionOptionsValue, DEFAULT_ACTION_OPTIONS } from './action-options/action-options.config';
 
 /** How long a press must last before it counts as "hold". */
-const HOLD_DELAY_MS = 200;
+const HOLD_DELAY_MS = 400;
 /** While still held, how often to repeat the jump. */
 const HOLD_REPEAT_MS = 300;
 /** Holding jumps to the next multiple of this. */
 const HOLD_STEP = 5;
 /** After holding this long (from the initial press), jumps get bigger. */
-const HOLD_FAST_AFTER_MS = 2500;
+const HOLD_FAST_AFTER_MS = 2000;
 const HOLD_FAST_STEP = 10;
 
 /** Next multiple of `step` above n (step 5: 3 -> 5, 5 -> 10). */
