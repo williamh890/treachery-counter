@@ -75,6 +75,7 @@ export class PlayerSetup {
   selectUser(user: AppUser) {
     this.selectedUid.set(user.uid);
     this.gameStore.setPlayerDeck(this.seat(), null);
+    this.gameStore.setPlayerName(this.seat(), user.username);
     this.state.set(SetupState.DeckSelect);
   }
 

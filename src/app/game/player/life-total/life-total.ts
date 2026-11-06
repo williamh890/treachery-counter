@@ -24,19 +24,22 @@ import { TurnControls } from './turn-controls/turn-controls';
     <span class="text-sm opacity-80 [text-shadow:0_1px_3px_rgb(0_0_0/0.8)]">
       {{ player()?.name }}
     </span>
-    <span
-      class="font-bold leading-none tabular-nums text-[35cqmin] [text-shadow:0_2px_8px_rgb(0_0_0/0.7)]"
-    >
-      {{ player()?.life }}
-    </span>
 
-    @if (actionSelect()) {
-      <app-protect-button
-        class="absolute right-[3cqmin] top-1/2 -translate-y-1/2"
-        [active]="isProtected()"
-        (pressed)="toggleProtect()"
-      />
-    }
+    <div class="relative">
+      <span
+        class="block font-bold leading-none tabular-nums text-[35cqmin] [text-shadow:0_2px_8px_rgb(0_0_0/0.7)]"
+      >
+        {{ player()?.life }}
+      </span>
+
+      @if (actionSelect()) {
+        <app-protect-button
+          class="absolute left-full top-1/2 ml-[3cqmin] -translate-y-1/2"
+          [active]="isProtected()"
+          (pressed)="toggleProtect()"
+        />
+      }
+    </div>
 
     <app-player-counters
       class="absolute left-[3cqmin] top-[3cqmin] max-w-[calc(100%-6cqmin)]"

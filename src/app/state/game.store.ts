@@ -130,6 +130,11 @@ export const GameStore = signalStore(
         players: players.map((p, i) => (i === seat ? { ...p, deck, isGuest: false } : p)),
       }));
     },
+    setPlayerName(seat: number, username: string) {
+      patchState(store, ({ players }) => ({
+        players: players.map((p, i) => (i === seat ? { ...p, name: username, isGuest: false } : p)),
+      }));
+    },
     setPlayerIsGuest(seat: number, isGuest: boolean) {
       patchState(store, ({ players }) => ({
         players: players.map((p, i) => (i === seat ? { ...p, isGuest } : p)),
