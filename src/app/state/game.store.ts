@@ -60,8 +60,8 @@ const initialState: GameState = {
 
 export type DeathDecision = { kill: number[]; protect: number[] };
 
-const MIN_PLAYERS = 2;
-const MAX_PLAYERS = 8;
+export const MIN_PLAYERS = 2;
+export const MAX_PLAYERS = 12;
 const MAX_HISTORY = 50;
 
 export const GameStore = signalStore(

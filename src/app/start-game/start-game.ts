@@ -6,9 +6,10 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
-import { GameStore } from '@state/game.store';
+import { GameStore, MAX_PLAYERS } from '@state/game.store';
 import { GroupStore } from '@state/group.store';
 import { AuthService } from '@services/auth';
+import { MAX } from '@angular/forms/signals';
 
 @Component({
   selector: 'app-start-game',
@@ -92,7 +93,7 @@ export class StartGame {
   protected readonly groups = this.groupStore.groupsWithMembers;
 
   readonly lifeOptions = [20, 25, 40];
-  readonly playerOptions = Array.from({ length: 8 }, (_, i) => i + 1);
+  readonly playerOptions = Array.from({ length: MAX_PLAYERS }, (_, i) => i + 1);
 
   readonly form = this.fb.group({
     groupId: this.fb.control<string | null>(this.game.groupId(), Validators.required),
