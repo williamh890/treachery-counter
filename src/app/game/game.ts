@@ -9,6 +9,7 @@ import { ProfileStore } from '@state/profile.store';
 import { GroupStore } from '@state/group.store';
 import { DeadPlayersDialog } from './dead-player-dialog/dead-player-dialog';
 import { GameOptionsDialog } from './game-options-dialog/game-options-dialog';
+import { OrientationLock } from '@services/orientation-lock';
 
 type Tile = {
   playerIndex: number;
@@ -142,9 +143,16 @@ export class Game {
   private fadeTimer?: ReturnType<typeof setTimeout>;
 
   private readonly groupStore = inject(GroupStore);
+  private orientation = inject(OrientationLock);
 
   constructor() {
-    inject(DestroyRef).onDestroy(() => clearTimeout(this.fadeTimer));
+    this.orientation.lockLandscape();
+
+    inject(DestroyRef).onDestroy(() => {
+      this.orientation.unlock();
+      clearTimeout(this.fadeTimer);
+    });
+
     effect(() => {
       if (!this.groupStore.ready()) return;
       if (!this.game.group()) this.router.navigate(['/start-game']);
