@@ -2,6 +2,8 @@ import { ApplicationConfig, provideBrowserGlobalErrorListeners, isDevMode } from
 import { provideRouter } from '@angular/router';
 import { routes } from './app.routes';
 import { provideServiceWorker } from '@angular/service-worker';
+import { provideAppInitializer, inject } from '@angular/core';
+import { AppUpdateService } from '@services/app-update';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -11,5 +13,6 @@ export const appConfig: ApplicationConfig = {
       enabled: !isDevMode(),
       registrationStrategy: 'registerWhenStable:30000',
     }),
+    provideAppInitializer(() => inject(AppUpdateService).init()),
   ],
 };

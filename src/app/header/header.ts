@@ -7,12 +7,14 @@ import { Router } from '@angular/router';
 import { MatToolbar } from '@angular/material/toolbar';
 import { MatIconButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
+import { MatBadge } from '@angular/material/badge';
 
 import { LoginBtn } from '../login-btn/login-btn';
+import { AppUpdateService } from '@services/app-update'; // adjust path
 
 @Component({
   selector: 'app-header',
-  imports: [MatToolbar, MatIconButton, MatIcon, LoginBtn],
+  imports: [MatToolbar, MatIconButton, MatIcon, MatBadge, LoginBtn],
   host: { class: 'block' },
   template: `
     <mat-toolbar class="sticky top-0 z-10">
@@ -27,7 +29,19 @@ import { LoginBtn } from '../login-btn/login-btn';
 
         <h1 class="text-lg font-semibold"></h1>
 
-        <div class="justify-self-end">
+        <div class="flex items-center gap-1 justify-self-end">
+          @if (updates.updateReady()) {
+            <button
+              mat-icon-button
+              aria-label="Update available. Tap to update the app"
+              matBadge="!"
+              matBadgeSize="small"
+              matBadgeColor="warn"
+              (click)="updates.apply()"
+            >
+              <mat-icon>system_update</mat-icon>
+            </button>
+          }
           <app-login-btn />
         </div>
       </div>
@@ -37,6 +51,7 @@ import { LoginBtn } from '../login-btn/login-btn';
 export class Header {
   private location = inject(Location);
   private router = inject(Router);
+  protected updates = inject(AppUpdateService);
 
   private url = toSignal(
     this.router.events.pipe(
