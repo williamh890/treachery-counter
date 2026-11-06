@@ -11,6 +11,8 @@ import { DeadPlayersDialog } from './dead-player-dialog/dead-player-dialog';
 import { GameOptionsDialog } from './game-options-dialog/game-options-dialog';
 import { OrientationLock } from '@services/orientation-lock';
 
+const BANNER_MS = 5000;
+
 type Tile = {
   playerIndex: number;
   turns: number;
@@ -115,6 +117,39 @@ const FADE_MS = 500;
     @if (drag(); as d) {
       <app-drag-arrow [start]="d.start" [end]="d.current" [fading]="arrowFading()" />
     }
+
+    @if (kingfisherBanner()) {
+      <div
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/90 px-8 text-center"
+        (click)="kingfisherBanner.set(false)"
+      >
+        <p
+          class="max-w-[90%] text-balance break-words text-center text-3xl font-bold text-white sm:text-5xl"
+        >
+          WE LOVE NICK. HE HAS BLESSED US WITH THIS PRESENCE.
+        </p>
+
+        <div class="absolute inset-x-0 bottom-0 h-2 bg-white/20">
+          <div
+            class="banner-progress h-full origin-left bg-white"
+            [style.animation-duration.ms]="bannerMs"
+          ></div>
+        </div>
+      </div>
+    }
+  `,
+  styles: `
+    .banner-progress {
+      animation: banner-progress linear forwards;
+    }
+    @keyframes banner-progress {
+      from {
+        transform: scaleX(1);
+      }
+      to {
+        transform: scaleX(0);
+      }
+    }
   `,
 })
 export class Game {
@@ -125,6 +160,10 @@ export class Game {
 
   protected drag = signal<ActiveDrag | null>(null);
   protected arrowFading = signal(false);
+
+  private kingfisherShown = false; // replaces kingfisherPresent
+  protected kingfisherBanner = signal(false);
+  private bannerTimer?: ReturnType<typeof setTimeout>;
 
   playersTurn = computed(() => this.game.turnSeat());
   deadPlayers = computed(
@@ -151,12 +190,30 @@ export class Game {
     inject(DestroyRef).onDestroy(() => {
       this.orientation.unlock();
       clearTimeout(this.fadeTimer);
+
+      clearTimeout(this.bannerTimer);
     });
 
     effect(() => {
       if (!this.groupStore.ready()) return;
       if (!this.game.group()) this.router.navigate(['/start-game']);
     });
+
+    effect(() => {
+      const present = this.game.players().some((player) => player.name === 'Kingfisher');
+
+      if (present && !this.kingfisherShown) {
+        this.kingfisherShown = true;
+        this.showKingfisherBanner();
+      }
+    });
+  }
+  protected readonly bannerMs = BANNER_MS;
+
+  private showKingfisherBanner() {
+    clearTimeout(this.bannerTimer);
+    this.kingfisherBanner.set(true);
+    this.bannerTimer = setTimeout(() => this.kingfisherBanner.set(false), BANNER_MS);
   }
 
   start() {
@@ -316,14 +373,15 @@ export class Game {
   }
 
   finishGame(winners: number[]) {
-    // TODO: record `winners` / save the game here
     console.log(winners);
+    this.kingfisherShown = false;
     this.game.closeOptions();
     this.game.resetGame();
     this.router.navigateByUrl('/home');
   }
 
   stopGame() {
+    this.kingfisherShown = false;
     this.game.closeOptions();
     this.game.resetGame();
     this.router.navigateByUrl('/home');
