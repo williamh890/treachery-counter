@@ -126,7 +126,7 @@ const FADE_MS = 500;
         <p
           class="max-w-[90%] text-balance break-words text-center text-3xl font-bold text-white sm:text-5xl"
         >
-          WE LOVE NICK. HE HAS BLESSED US WITH THIS PRESENCE.
+          WE LOVE NICK. HE HAS BLESSED US WITH HIS PRESENCE.
         </p>
 
         <div class="absolute inset-x-0 bottom-0 h-2 bg-white/20">
