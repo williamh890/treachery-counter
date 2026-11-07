@@ -41,6 +41,9 @@ const DRAG_THRESHOLD_PX = 8;
 const CONTROL_DRAG_THRESHOLD_PX = 64;
 const FADE_MS = 500;
 
+const DOUBLE_TAP_MS = 300;
+const DOUBLE_TAP_SLOP_PX = 40;
+
 @Component({
   selector: 'app-player-grid',
   imports: [
@@ -165,6 +168,7 @@ export class Game {
   protected arrowFading = signal(false);
 
   protected bannerName = signal<string | null>(null);
+  private lastTap: { seat: number; time: number; x: number; y: number } | null = null;
 
   playersTurn = computed(() => this.game.turnSeat());
   deadPlayers = computed(
@@ -280,7 +284,11 @@ export class Game {
     const wasDragging = this.dragging;
     this.press = null;
     this.dragging = false;
-    if (!wasDragging) return; // a tap, not a drag
+    if (!wasDragging) {
+      this.registerTap(p, e); // a tap, not a drag
+      return;
+    }
+    this.lastTap = null;
 
     const to = this.seatAt({ x: e.clientX, y: e.clientY });
     this.fadeOutArrow();
@@ -310,6 +318,37 @@ export class Game {
       this.drag.set(null);
       this.arrowFading.set(false);
     }, FADE_MS);
+  }
+
+  private registerTap(p: Press, e: PointerEvent) {
+    // Button presses (undo, pass, selector buttons) never count toward a double tap
+    if (p.onControl) {
+      this.lastTap = null;
+      return;
+    }
+
+    const last = this.lastTap;
+    const isDouble =
+      last !== null &&
+      last.seat === p.seat &&
+      e.timeStamp - last.time <= DOUBLE_TAP_MS &&
+      Math.hypot(e.clientX - last.x, e.clientY - last.y) <= DOUBLE_TAP_SLOP_PX;
+
+    if (!isDouble) {
+      this.lastTap = { seat: p.seat, time: e.timeStamp, x: e.clientX, y: e.clientY };
+      return;
+    }
+
+    this.lastTap = null;
+    this.openActionSelect(p.seat);
+  }
+
+  private openActionSelect(seat: number) {
+    if (this.game.turnSeat() === null) return; // "Go first" still showing
+    if (this.game.players()[seat]?.status === 'eliminated') return;
+    if (this.game.actionSelect()?.sourceSeat === seat) return; // already open here
+
+    this.onPlayerDragged(seat, seat);
   }
 
   /** Which player (if any) is under this screen point. */
