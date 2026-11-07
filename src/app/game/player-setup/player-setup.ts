@@ -50,6 +50,10 @@ export class PlayerSetup {
 
   player = computed(() => this.gameStore.playerAt(this.seat()));
   playerDeck = computed(() => this.player()?.deck ?? null);
+  usersNotInGame = computed(() => {
+    const playersInGame = this.gameStore.players().map((player) => player.name);
+    return this.users().filter((user) => !playersInGame.includes(user.username));
+  });
 
   /** Commander first, then partner/companion if the deck has them. */
   selectedCards = computed<DeckCardInfo[]>(() => {
@@ -98,8 +102,13 @@ export class PlayerSetup {
     if (current === SetupState.AccountOrGuest) return;
 
     // Clear data belonging to the state we're leaving.
-    if (current === SetupState.DeckSelected) this.gameStore.setPlayerDeck(this.seat(), null);
-    if (current === SetupState.DeckSelect) this.selectedUid.set(null);
+    if (current === SetupState.DeckSelected) {
+      this.gameStore.setPlayerDeck(this.seat(), null);
+    }
+    if (current === SetupState.DeckSelect) {
+      this.selectedUid.set(null);
+      this.gameStore.setPlayerName(this.seat(), `Player ${this.seat() + 1}`);
+    }
 
     this.state.set(current - 1);
   }

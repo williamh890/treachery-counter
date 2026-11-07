@@ -6,7 +6,7 @@
     <button (click)="chooseGuest()" matButton="elevated">Guest</button>
   } @else if (state() === SetupState.UserSelect) {
     <mat-chip-set aria-label="Player Selection">
-      @for (user of users(); track user.uid) {
+      @for (user of usersNotInGame(); track user.uid) {
         <mat-chip (click)="selectUser(user)">{{ user.username }}</mat-chip>
       } @empty {
         <mat-chip>No players found.</mat-chip>

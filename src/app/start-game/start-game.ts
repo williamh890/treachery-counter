@@ -124,6 +124,7 @@ export class StartGame {
   start() {
     const { groupId, startingLife, playerCount } = this.form.getRawValue();
     if (!groupId) return;
+    this.game.resetGame();
 
     this.game.setStartingLife(startingLife);
     this.game.setPlayerCount(playerCount);
