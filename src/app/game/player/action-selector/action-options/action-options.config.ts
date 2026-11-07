@@ -33,11 +33,6 @@ export const TYPE_OPTIONS_BY_TARGET: Record<ActionTarget, readonly ActionType[]>
   Opponents: ['Damage', 'Healing', 'Drain', 'Extort', 'Infect'],
 };
 
-/** Commander only applies to a single player, and not to healing. */
-export function availableTags(target: ActionTarget, type: ActionType): readonly ActionTag[] {
-  return target === 'Player' && type !== 'Healing' ? ['Commander'] : [];
-}
-
 /** Drops anything that's no longer valid after a change (e.g. switching target). */
 export function normalizeOptions(value: ActionOptionsValue): ActionOptionsValue {
   const type = TYPE_OPTIONS_BY_TARGET[value.target].includes(value.type) ? value.type : 'Damage';
@@ -78,4 +73,21 @@ const FALLBACK_COLOR: OptionColor = { fill: '#737373', ink: '#ffffff', edge: '#a
 
 export function optionColor(key: string): OptionColor {
   return OPTION_COLORS[key] ?? FALLBACK_COLOR;
+}
+
+/** Types that deal damage, so the only ones Commander can combine with. */
+const COMMANDER_TYPES: readonly ActionType[] = ['Damage', 'Lifelink'];
+
+/** Types shown for a target; with Commander toggled, only the damage types. */
+export function availableTypes(
+  target: ActionTarget,
+  tags: readonly ActionTag[],
+): readonly ActionType[] {
+  const types = TYPE_OPTIONS_BY_TARGET[target];
+  return tags.includes('Commander') ? types.filter((t) => COMMANDER_TYPES.includes(t)) : types;
+}
+
+/** Commander only applies to a single player, and only to damage types. */
+export function availableTags(target: ActionTarget, type: ActionType): readonly ActionTag[] {
+  return target === 'Player' && COMMANDER_TYPES.includes(type) ? ['Commander'] : [];
 }

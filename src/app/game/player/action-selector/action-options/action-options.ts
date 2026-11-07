@@ -8,8 +8,8 @@ import {
   DEFAULT_ACTION_OPTIONS,
   OPTION_COLORS,
   TARGETS,
-  TYPE_OPTIONS_BY_TARGET,
   availableTags,
+  availableTypes,
   normalizeOptions,
 } from './action-options.config';
 
@@ -33,9 +33,9 @@ const TARGET_GROUP: OptionGroup = {
   selector: 'app-action-options',
   host: { class: 'block' },
   template: `
-    <div class="flex flex-col items-center gap-2 px-3 py-2">
+    <div class="flex flex-col items-center gap-3 px-3 py-2">
       @for (row of rows(); track $index) {
-        <div class="flex flex-wrap justify-center gap-1.5">
+        <div class="flex flex-wrap justify-center gap-2">
           @for (group of row; track group.id) {
             <!-- display: contents lets every pill in the row wrap as one flow -->
             <div
@@ -92,13 +92,14 @@ export class ActionOptions {
 
   /** Type row on top, targets underneath. The types offered depend on the picked target. */
   protected readonly rows = computed<readonly (readonly OptionGroup[])[]>(() => {
-    const { target, type } = this.value();
+    const { target, type, tags: selectedTags } = this.value();
 
     const typeGroup: OptionGroup = {
       id: 'type',
       label: 'Type',
       mode: 'single',
-      options: TYPE_OPTIONS_BY_TARGET[target],
+      // With Commander toggled, only the damage types are offered
+      options: availableTypes(target, selectedTags),
     };
 
     // Commander is a toggle that sits in the type row and combines with the type.
@@ -116,8 +117,8 @@ export class ActionOptions {
   protected pillClass(group: OptionGroup, option: string, selected: boolean) {
     const shape =
       group.id === 'target'
-        ? 'min-h-9 rounded-full px-3 py-1 text-xs font-semibold'
-        : 'min-h-9 rounded-lg pl-3 pr-4 text-sm font-semibold';
+        ? 'min-h-12 rounded-full px-4 py-1 text-sm font-semibold'
+        : 'min-h-12 rounded-lg pl-3 pr-4 text-base font-semibold';
 
     if (this.colors[option]) {
       return `${shape} bg-[var(--fill)] text-[var(--ink)] ${
