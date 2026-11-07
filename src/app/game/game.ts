@@ -137,6 +137,14 @@ const FADE_MS = 500;
         </div>
       </div>
     }
+
+    @if (orientation.needsGesture()) {
+      <div class="pointer-events-none fixed inset-x-0 top-3 z-50 flex justify-center">
+        <span class="rounded-full bg-black/80 px-4 py-2 text-sm font-semibold text-white shadow-lg">
+          Tap anywhere to return to fullscreen
+        </span>
+      </div>
+    }
   `,
   styles: `
     .banner-progress {
@@ -182,7 +190,7 @@ export class Game {
   private fadeTimer?: ReturnType<typeof setTimeout>;
 
   private readonly groupStore = inject(GroupStore);
-  private orientation = inject(OrientationLock);
+  protected orientation = inject(OrientationLock);
 
   constructor() {
     this.orientation.lockLandscape();
