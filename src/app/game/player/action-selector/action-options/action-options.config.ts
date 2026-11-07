@@ -11,6 +11,12 @@ export interface ActionOptionsValue {
   tags: ActionTag[];
 }
 
+/** What the selector emits on Submit: the count plus the chosen options. */
+export interface ActionSubmission {
+  count: number;
+  options: ActionOptionsValue;
+}
+
 export const DEFAULT_ACTION_OPTIONS: ActionOptionsValue = {
   target: 'Player',
   type: 'Damage',
@@ -67,3 +73,9 @@ export const OPTION_COLORS: Partial<Record<string, OptionColor>> = {
   Drain: { fill: '#000000', ink: '#ffffff', edge: '#8a8a8a' }, // black (grey edge so it shows)
   Extort: { fill: '#9333ea', ink: '#ffffff', edge: '#a855f7' }, // purple
 };
+
+const FALLBACK_COLOR: OptionColor = { fill: '#737373', ink: '#ffffff', edge: '#a3a3a3' };
+
+export function optionColor(key: string): OptionColor {
+  return OPTION_COLORS[key] ?? FALLBACK_COLOR;
+}

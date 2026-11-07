@@ -1,9 +1,11 @@
 // src/app/features/game/player/player.ts
 import { Component, computed, inject, input } from '@angular/core';
 import { GameStore } from '@state/game.store';
-import { ActionSelector, ActionSubmission } from './action-selector/action-selector';
+import { ActionSelector } from './action-selector/action-selector';
+import { ActionSubmission } from './action-selector/action-options/action-options.config';
 import { LifeTotal } from './life-total/life-total';
 import { Elimination } from './elimination/elimination';
+import { optionColor } from './action-selector/action-options/action-options.config';
 
 @Component({
   selector: 'app-player',
@@ -35,18 +37,27 @@ import { Elimination } from './elimination/elimination';
             Go first
           </button>
         </div>
-      } @else if (actionSelect()?.targetSeat === seat()) {
+      } @else if (actionSelect()?.sourceSeat === seat()) {
         <app-action-selector (apply)="applyAction($event)" (cancel)="cancelAction()" />
       } @else {
         @if (player(); as p) {
           @if (p.status !== 'eliminated') {
             <app-life-total [seat]="seat()" (eliminate)="eliminatePlayer()" />
           } @else {
-            <app-elimination [name]="p.name" (revive)="protectPlayer()"/>
+            <app-elimination [name]="p.name" (revive)="protectPlayer()" />
           }
         }
       }
     </div>
+
+    // template: add after the tint, before the content wrapper
+    @if (outlineColor(); as color) {
+      <div
+        class="pointer-events-none absolute inset-0 z-20 border-[3px]"
+        [style.border-color]="color"
+        aria-hidden="true"
+      ></div>
+    }
   `,
   imports: [ActionSelector, LifeTotal, Elimination],
 })
@@ -60,6 +71,12 @@ export class Player {
   playersTurn = computed(() => this.gameStore.turnSeat());
   player = computed(() => this.gameStore.playerAt(this.seat()));
   playerName = computed(() => this.player()?.name);
+  // class
+  outlineColor = computed(() => {
+    const opts = this.gameStore.actionOptions();
+    if (!opts || !this.gameStore.targetSeats().includes(this.seat())) return null;
+    return optionColor(opts.type).edge;
+  });
 
   setTurn() {
     this.gameStore.setTurn(this.seat());

@@ -13,7 +13,31 @@ import {
 import { withStorageSync } from './with-storage-sync';
 import { GroupStore } from './group.store';
 import { ProfileStore } from './profile.store';
-import { ActionSubmission } from '../game/player/action-selector/action-selector';
+import {
+  ActionOptionsValue,
+  ActionSubmission,
+} from '../game/player/action-selector/action-options/action-options.config';
+
+/** Seats an action hits. Protected seats are excluded; group targets skip eliminated players. */
+function hitSeats(
+  players: Player[],
+  select: ActionSelect,
+  target: ActionOptionsValue['target'],
+): number[] {
+  const { sourceSeat, targetSeat, protectSeats } = select;
+  return players
+    .map((_, seat) => seat)
+    .filter((seat) => {
+      const inGame = players[seat].status !== 'eliminated';
+      const targeted =
+        target === 'Player'
+          ? seat === targetSeat
+          : target === 'All'
+            ? inGame
+            : inGame && seat !== sourceSeat;
+      return targeted && !protectSeats.includes(seat);
+    });
+}
 
 export type PlayerStatus = 'alive' | 'dead' | 'protected' | 'eliminated';
 
@@ -42,6 +66,7 @@ type GameState = {
   /** The group this game is played with; limits who can take a seat. */
   groupId: string | null;
   actionSelect: ActionSelect | null;
+  actionOptions: ActionOptionsValue | null;
   turnSeat: number | null;
 };
 
@@ -55,6 +80,7 @@ const initialState: GameState = {
   players: [],
   groupId: null,
   actionSelect: null,
+  actionOptions: null,
   turnSeat: null,
 };
 
@@ -80,6 +106,7 @@ export const GameStore = signalStore(
   })),
   withComputed((store) => ({
     /** Uids to keep deck listeners open for: only while seats are being set up. */
+
     deckUserIds: computed(
       () =>
         store.gameState() === 'SETUP' && store.players().length > 0
@@ -87,6 +114,11 @@ export const GameStore = signalStore(
           : [],
       { equal: (a, b) => a.length === b.length && a.every((id, i) => id === b[i]) },
     ),
+    targetSeats: computed<number[]>(() => {
+      const select = store.actionSelect();
+      const options = store.actionOptions();
+      return select && options ? hitSeats(store.players(), select, options.target) : [];
+    }),
   })),
 
   // Undo history. A plain signal prop, not state, so withStorageSync never persists it.
@@ -146,6 +178,9 @@ export const GameStore = signalStore(
     playersReady(): boolean {
       const players = store.players();
       return players.length > 0 && players.every((p) => p.deck || p.isGuest);
+    },
+    setActionOptions(value: ActionOptionsValue | null) {
+      patchState(store, { actionOptions: value });
     },
 
     resetGame() {

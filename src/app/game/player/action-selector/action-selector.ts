@@ -1,12 +1,17 @@
 // src/app/features/game/player/action-selector/action-selector.ts
-import { Component, DestroyRef, inject, model, output, signal } from '@angular/core';
+import { Component, DestroyRef, effect, inject, model, output, signal } from '@angular/core';
 import { ActionOptions } from './action-options/action-options';
-import { ActionOptionsValue, DEFAULT_ACTION_OPTIONS } from './action-options/action-options.config';
+import {
+  ActionOptionsValue,
+  DEFAULT_ACTION_OPTIONS,
+  ActionSubmission,
+} from './action-options/action-options.config';
+import { GameStore } from '@state/game.store';
 
 /** How long a press must last before it counts as "hold". */
 const HOLD_DELAY_MS = 400;
 /** While still held, how often to repeat the jump. */
-const HOLD_REPEAT_MS = 300;
+const HOLD_REPEAT_MS = 400;
 /** Holding jumps to the next multiple of this. */
 const HOLD_STEP = 5;
 /** After holding this long (from the initial press), jumps get bigger. */
@@ -17,12 +22,6 @@ const HOLD_FAST_STEP = 10;
 const snapUp = (n: number, step: number) => (Math.floor(n / step) + 1) * step;
 /** Next multiple of `step` below n, never under 0 (step 5: 8 -> 5, 5 -> 0, 3 -> 0). */
 const snapDown = (n: number, step: number) => Math.max(0, (Math.ceil(n / step) - 1) * step);
-
-/** What the selector emits on Submit: the count plus the chosen options. */
-export interface ActionSubmission {
-  count: number;
-  options: ActionOptionsValue;
-}
 
 @Component({
   selector: 'app-action-selector',
@@ -92,6 +91,7 @@ export interface ActionSubmission {
   `,
 })
 export class ActionSelector {
+  private gameStore = inject(GameStore);
   /** Current count. Two-way bindable, e.g. [(count)]="..."; never goes below 0. */
   count = model(0);
 
@@ -107,6 +107,7 @@ export class ActionSelector {
   private longPressed = false;
 
   constructor() {
+    effect(() => this.gameStore.setActionOptions(this.options()));
     inject(DestroyRef).onDestroy(() => this.clearTimer());
   }
 
