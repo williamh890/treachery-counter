@@ -16,6 +16,7 @@ import { ProfileStore } from './profile.store';
 import {
   ActionOptionsValue,
   ActionSubmission,
+  DEFAULT_ACTION_OPTIONS,
 } from '../game/player/action-selector/action-options/action-options.config';
 
 /** Seats an action hits. Protected seats are excluded; group targets skip eliminated players. */
@@ -236,6 +237,7 @@ export const GameStore = signalStore(
     setActionSelect(sourceSeat: number, targetSeat: number) {
       patchState(store, {
         actionSelect: { sourceSeat, targetSeat, protectSeats: [] },
+        actionOptions: DEFAULT_ACTION_OPTIONS,
       });
     },
 

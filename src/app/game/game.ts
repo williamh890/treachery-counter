@@ -4,45 +4,20 @@ import { Router } from '@angular/router';
 import { GameStore, DeathDecision } from '@state/game.store';
 import { PlayerSetup } from './player-setup/player-setup';
 import { Player } from './player/player';
-import { DragArrow, Point } from './drag-arrow';
+import { DragArrow } from './drag-arrow';
 import { ProfileStore } from '@state/profile.store';
 import { GroupStore } from '@state/group.store';
 import { DeadPlayersDialog } from './dead-player-dialog/dead-player-dialog';
 import { GameOptionsDialog } from './game-options-dialog/game-options-dialog';
 import { OrientationLock } from '@services/orientation-lock';
 import { Banner } from './banner/banner';
+import { ActionGesture } from './action-gesture';
 
 type Tile = {
   playerIndex: number;
   turns: number;
   sideways: boolean;
 };
-
-interface ActiveDrag {
-  from: number;
-  start: Point;
-  current: Point;
-  over: number | null;
-  leftSource: boolean; // true once the pointer has been over any other tile
-}
-
-interface Press {
-  pointerId: number;
-  seat: number;
-  x: number;
-  y: number;
-  center: Point;
-  /** Started on a button, e.g. in the action selector. */
-  onControl: boolean;
-}
-
-const DRAG_THRESHOLD_PX = 8;
-/** A finger holding a button jitters; don't mistake that for a drag. */
-const CONTROL_DRAG_THRESHOLD_PX = 64;
-const FADE_MS = 500;
-
-const DOUBLE_TAP_MS = 300;
-const DOUBLE_TAP_SLOP_PX = 40;
 
 @Component({
   selector: 'app-player-grid',
@@ -55,12 +30,9 @@ const DOUBLE_TAP_SLOP_PX = 40;
     GameOptionsDialog,
     Banner,
   ],
+  hostDirectives: [ActionGesture],
   host: {
     class: 'relative flex min-h-0 flex-1',
-    '(pointerdown)': 'onPointerDown($event)',
-    '(pointermove)': 'onPointerMove($event)',
-    '(pointerup)': 'onPointerUp($event)',
-    '(pointercancel)': 'onPointerCancel($event)',
   },
   template: `
     @if (game.optionsOpen()) {
@@ -95,7 +67,7 @@ const DOUBLE_TAP_SLOP_PX = 40;
                 <div>FINISHED GAME</div>
               }
 
-              @if (dropTarget() === tile.playerIndex) {
+              @if (gestures.dropTarget() === tile.playerIndex) {
                 <div
                   class="pointer-events-none absolute inset-0 z-20 border-4 border-white/80"
                 ></div>
@@ -128,8 +100,8 @@ const DOUBLE_TAP_SLOP_PX = 40;
       <app-dead-players-dialog (resolved)="onConfirmDeath($event)" />
     }
 
-    @if (drag(); as d) {
-      <app-drag-arrow [start]="d.start" [end]="d.current" [fading]="arrowFading()" />
+    @if (gestures.drag(); as d) {
+      <app-drag-arrow [start]="d.start" [end]="d.current" [fading]="gestures.arrowFading()" />
     }
 
     @if (bannerName(); as name) {
@@ -161,30 +133,16 @@ const DOUBLE_TAP_SLOP_PX = 40;
 export class Game {
   protected game = inject(GameStore);
   protected profileStore = inject(ProfileStore);
+  protected gestures = inject(ActionGesture);
 
   private router = inject(Router);
 
-  protected drag = signal<ActiveDrag | null>(null);
-  protected arrowFading = signal(false);
-
   protected bannerName = signal<string | null>(null);
-  private lastTap: { seat: number; time: number; x: number; y: number } | null = null;
 
   playersTurn = computed(() => this.game.turnSeat());
   deadPlayers = computed(
     () => this.game.players()?.filter((player) => player.status === 'dead') ?? [],
   );
-  /** The seat the arrow is currently hovering over (never the source). */
-  protected dropTarget = computed(() => {
-    const d = this.drag();
-    if (!d || this.arrowFading() || d.over === null) return null;
-    if (d.over === d.from && !d.leftSource) return null;
-    return d.over;
-  });
-
-  private press: Press | null = null;
-  private dragging = false;
-  private fadeTimer?: ReturnType<typeof setTimeout>;
 
   private readonly groupStore = inject(GroupStore);
   protected orientation = inject(OrientationLock);
@@ -192,10 +150,7 @@ export class Game {
   constructor() {
     this.orientation.lockLandscape();
 
-    inject(DestroyRef).onDestroy(() => {
-      this.orientation.unlock();
-      clearTimeout(this.fadeTimer);
-    });
+    inject(DestroyRef).onDestroy(() => this.orientation.unlock());
 
     effect(() => {
       if (!this.groupStore.ready()) return;
@@ -222,141 +177,6 @@ export class Game {
 
   onConfirmDeath(decision: DeathDecision) {
     this.game.applyDeathDescision(decision);
-  }
-
-  // --- Drag between players ---
-
-  protected onPointerDown(e: PointerEvent) {
-    if (this.game.gameState() !== 'PLAY' || this.press) return;
-    if (e.pointerType === 'mouse' && e.button !== 0) return;
-
-    const tile = (e.target as HTMLElement).closest<HTMLElement>('[data-seat]');
-    if (!tile) return;
-
-    // The bounding box of a rotated tile still has the right center.
-    const rect = tile.getBoundingClientRect();
-    this.press = {
-      pointerId: e.pointerId,
-      seat: Number(tile.dataset['seat']),
-      x: e.clientX,
-      y: e.clientY,
-      center: { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 },
-      onControl: !!(e.target as HTMLElement).closest('button'),
-    };
-    this.dragging = false;
-    // No pointer capture yet: it happens once the press turns into a drag, so taps and
-    // holds on buttons (e.g. in the action selector) keep behaving like normal presses.
-  }
-
-  protected onPointerMove(e: PointerEvent) {
-    const p = this.press;
-    if (!p || e.pointerId !== p.pointerId) return;
-
-    if (!this.dragging) {
-      const threshold = p.onControl ? CONTROL_DRAG_THRESHOLD_PX : DRAG_THRESHOLD_PX;
-      if (Math.hypot(e.clientX - p.x, e.clientY - p.y) < threshold) return;
-      this.dragging = true;
-      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-      clearTimeout(this.fadeTimer);
-      this.arrowFading.set(false);
-      this.drag.set({
-        from: p.seat,
-        start: p.center,
-        current: p.center,
-        over: p.seat,
-        leftSource: false,
-      });
-    }
-
-    const current = { x: e.clientX, y: e.clientY };
-    const over = this.seatAt(current);
-    this.drag.update((d) =>
-      d
-        ? { ...d, current, over, leftSource: d.leftSource || (over !== null && over !== d.from) }
-        : d,
-    );
-  }
-
-  protected onPointerUp(e: PointerEvent) {
-    const p = this.press;
-    if (!p || e.pointerId !== p.pointerId) return;
-
-    const wasDragging = this.dragging;
-    this.press = null;
-    this.dragging = false;
-    if (!wasDragging) {
-      this.registerTap(p, e); // a tap, not a drag
-      return;
-    }
-    this.lastTap = null;
-
-    const to = this.seatAt({ x: e.clientX, y: e.clientY });
-    this.fadeOutArrow();
-
-    if (to !== null) {
-      this.onPlayerDragged(p.seat, to);
-    }
-  }
-
-  protected onPointerCancel(e: PointerEvent) {
-    const p = this.press;
-    if (!p || e.pointerId !== p.pointerId) return;
-
-    if (this.dragging) this.fadeOutArrow();
-    this.press = null;
-    this.dragging = false;
-  }
-
-  private onPlayerDragged(sourceSeat: number, targetSeat: number) {
-    console.log(sourceSeat, targetSeat);
-    this.game.setActionSelect(sourceSeat, targetSeat);
-  }
-
-  private fadeOutArrow() {
-    this.arrowFading.set(true);
-    this.fadeTimer = setTimeout(() => {
-      this.drag.set(null);
-      this.arrowFading.set(false);
-    }, FADE_MS);
-  }
-
-  private registerTap(p: Press, e: PointerEvent) {
-    // Button presses (undo, pass, selector buttons) never count toward a double tap
-    if (p.onControl) {
-      this.lastTap = null;
-      return;
-    }
-
-    const last = this.lastTap;
-    const isDouble =
-      last !== null &&
-      last.seat === p.seat &&
-      e.timeStamp - last.time <= DOUBLE_TAP_MS &&
-      Math.hypot(e.clientX - last.x, e.clientY - last.y) <= DOUBLE_TAP_SLOP_PX;
-
-    if (!isDouble) {
-      this.lastTap = { seat: p.seat, time: e.timeStamp, x: e.clientX, y: e.clientY };
-      return;
-    }
-
-    this.lastTap = null;
-    this.openActionSelect(p.seat);
-  }
-
-  private openActionSelect(seat: number) {
-    if (this.game.turnSeat() === null) return; // "Go first" still showing
-    if (this.game.players()[seat]?.status === 'eliminated') return;
-    if (this.game.actionSelect()?.sourceSeat === seat) return; // already open here
-
-    this.onPlayerDragged(seat, seat);
-  }
-
-  /** Which player (if any) is under this screen point. */
-  private seatAt({ x, y }: Point): number | null {
-    const seat = document.elementFromPoint(x, y)?.closest<HTMLElement>('[data-seat]')?.dataset[
-      'seat'
-    ];
-    return seat === undefined ? null : Number(seat);
   }
 
   // --- Layout (unchanged) ---
