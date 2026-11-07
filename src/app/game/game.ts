@@ -10,8 +10,7 @@ import { GroupStore } from '@state/group.store';
 import { DeadPlayersDialog } from './dead-player-dialog/dead-player-dialog';
 import { GameOptionsDialog } from './game-options-dialog/game-options-dialog';
 import { OrientationLock } from '@services/orientation-lock';
-
-const BANNER_MS = 5000;
+import { Banner } from './banner/banner';
 
 type Tile = {
   playerIndex: number;
@@ -44,7 +43,15 @@ const FADE_MS = 500;
 
 @Component({
   selector: 'app-player-grid',
-  imports: [PlayerSetup, Player, DragArrow, MatButtonModule, DeadPlayersDialog, GameOptionsDialog],
+  imports: [
+    PlayerSetup,
+    Player,
+    DragArrow,
+    MatButtonModule,
+    DeadPlayersDialog,
+    GameOptionsDialog,
+    Banner,
+  ],
   host: {
     class: 'relative flex min-h-0 flex-1',
     '(pointerdown)': 'onPointerDown($event)',
@@ -74,7 +81,11 @@ const FADE_MS = 500;
               [style.transform]="'translate(-50%, -50%) rotate(' + tile.turns * 90 + 'deg)'"
             >
               @if (game.gameState() === 'SETUP') {
-                <app-player-setup [seat]="tile.playerIndex" [users]="game.seatUsers()" />
+                <app-player-setup
+                  [seat]="tile.playerIndex"
+                  [users]="game.seatUsers()"
+                  (userSelected)="onUserSelected($event)"
+                />
               } @else if (game.gameState() === 'PLAY') {
                 <app-player [seat]="tile.playerIndex" />
               } @else if (game.gameState() === 'POST') {
@@ -118,24 +129,8 @@ const FADE_MS = 500;
       <app-drag-arrow [start]="d.start" [end]="d.current" [fading]="arrowFading()" />
     }
 
-    @if (kingfisherBanner()) {
-      <div
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/90 px-8 text-center"
-        (click)="kingfisherBanner.set(false)"
-      >
-        <p
-          class="max-w-[90%] text-balance break-words text-center text-3xl font-bold text-white sm:text-5xl"
-        >
-          WE LOVE NICK. HE HAS BLESSED US WITH HIS PRESENCE.
-        </p>
-
-        <div class="absolute inset-x-0 bottom-0 h-2 bg-white/20">
-          <div
-            class="banner-progress h-full origin-left bg-white"
-            [style.animation-duration.ms]="bannerMs"
-          ></div>
-        </div>
-      </div>
+    @if (bannerName(); as name) {
+      <app-banner [name]="name" (closed)="bannerName.set(null)" />
     }
 
     @if (orientation.needsGesture()) {
@@ -169,9 +164,7 @@ export class Game {
   protected drag = signal<ActiveDrag | null>(null);
   protected arrowFading = signal(false);
 
-  private kingfisherShown = false; // replaces kingfisherPresent
-  protected kingfisherBanner = signal(false);
-  private bannerTimer?: ReturnType<typeof setTimeout>;
+  protected bannerName = signal<string | null>(null);
 
   playersTurn = computed(() => this.game.turnSeat());
   deadPlayers = computed(
@@ -198,30 +191,12 @@ export class Game {
     inject(DestroyRef).onDestroy(() => {
       this.orientation.unlock();
       clearTimeout(this.fadeTimer);
-
-      clearTimeout(this.bannerTimer);
     });
 
     effect(() => {
       if (!this.groupStore.ready()) return;
       if (!this.game.group()) this.router.navigate(['/start-game']);
     });
-
-    effect(() => {
-      const present = this.game.players().some((player) => player.name === 'Kingfisher');
-
-      if (present && !this.kingfisherShown) {
-        this.kingfisherShown = true;
-        this.showKingfisherBanner();
-      }
-    });
-  }
-  protected readonly bannerMs = BANNER_MS;
-
-  private showKingfisherBanner() {
-    clearTimeout(this.bannerTimer);
-    this.kingfisherBanner.set(true);
-    this.bannerTimer = setTimeout(() => this.kingfisherBanner.set(false), BANNER_MS);
   }
 
   start() {
@@ -230,6 +205,10 @@ export class Game {
 
   back() {
     this.router.navigate(['/start-game']);
+  }
+
+  protected onUserSelected(name: string) {
+    if (!this.bannerName()) this.bannerName.set(name); // don't stack banners
   }
 
   setRandomPlayersTurn() {
@@ -382,14 +361,12 @@ export class Game {
 
   finishGame(winners: number[]) {
     console.log(winners);
-    this.kingfisherShown = false;
     this.game.closeOptions();
     this.game.resetGame();
     this.router.navigateByUrl('/home');
   }
 
   stopGame() {
-    this.kingfisherShown = false;
     this.game.closeOptions();
     this.game.resetGame();
     this.router.navigateByUrl('/home');

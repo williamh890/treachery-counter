@@ -1,4 +1,4 @@
-import { Component, computed, input, signal, inject, effect } from '@angular/core';
+import { Component, computed, input, signal, inject, effect, output } from '@angular/core';
 
 import { MatButtonModule } from '@angular/material/button';
 import { MatChipsModule } from '@angular/material/chips';
@@ -31,6 +31,7 @@ export class PlayerSetup {
 
   seat = input.required<number>();
   users = input.required<AppUser[]>();
+  readonly userSelected = output<string>();
 
   SetupState = SetupState;
   state = signal<SetupState>(SetupState.AccountOrGuest);
@@ -81,6 +82,7 @@ export class PlayerSetup {
     this.gameStore.setPlayerDeck(this.seat(), null);
     this.gameStore.setPlayerName(this.seat(), user.username);
     this.state.set(SetupState.DeckSelect);
+    this.userSelected.emit(user.username);
   }
 
   chooseAccount() {
