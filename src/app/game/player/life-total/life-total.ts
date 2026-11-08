@@ -32,7 +32,7 @@ import { TurnControls } from './turn-controls/turn-controls';
         {{ player()?.life }}
       </span>
 
-      @if (isTargeted()) {
+      @if (isTargeted() || isProtected()) {
         <app-protect-button
           class="absolute left-full top-1/2 ml-[3cqmin] -translate-y-1/2"
           [active]="isProtected()"
