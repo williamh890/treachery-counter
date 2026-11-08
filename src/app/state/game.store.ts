@@ -19,27 +19,6 @@ import {
   DEFAULT_ACTION_OPTIONS,
 } from '../game/player/action-selector/action-options/action-options.config';
 
-/** Seats an action hits. Protected seats are excluded; group targets skip eliminated players. */
-function hitSeats(
-  players: Player[],
-  select: ActionSelect,
-  target: ActionOptionsValue['target'],
-): number[] {
-  const { sourceSeat, targetSeat, protectSeats } = select;
-  return players
-    .map((_, seat) => seat)
-    .filter((seat) => {
-      const inGame = players[seat].status !== 'eliminated';
-      const targeted =
-        target === 'Player'
-          ? seat === targetSeat
-          : target === 'All'
-            ? inGame
-            : inGame && seat !== sourceSeat;
-      return targeted && !protectSeats.includes(seat);
-    });
-}
-
 export type PlayerStatus = 'alive' | 'dead' | 'protected' | 'eliminated';
 
 export type Player = {
@@ -54,6 +33,7 @@ export type Player = {
 };
 
 export type ActionSelect = {
+  id: number;
   sourceSeat: number;
   targetSeat: number;
   protectSeats: number[];
@@ -236,7 +216,7 @@ export const GameStore = signalStore(
   withMethods((store) => ({
     setActionSelect(sourceSeat: number, targetSeat: number) {
       patchState(store, {
-        actionSelect: { sourceSeat, targetSeat, protectSeats: [] },
+        actionSelect: { id: Date.now(), sourceSeat, targetSeat, protectSeats: [] },
         actionOptions: DEFAULT_ACTION_OPTIONS,
       });
     },
@@ -423,3 +403,24 @@ export const GameStore = signalStore(
     },
   })),
 );
+
+/** Seats an action hits. Protected seats are excluded; group targets skip eliminated players. */
+function hitSeats(
+  players: Player[],
+  select: ActionSelect,
+  target: ActionOptionsValue['target'],
+): number[] {
+  const { sourceSeat, targetSeat, protectSeats } = select;
+  return players
+    .map((_, seat) => seat)
+    .filter((seat) => {
+      const inGame = players[seat].status !== 'eliminated';
+      const targeted =
+        target === 'Player'
+          ? seat === targetSeat
+          : target === 'All'
+            ? inGame
+            : inGame && seat !== sourceSeat;
+      return targeted && !protectSeats.includes(seat);
+    });
+}

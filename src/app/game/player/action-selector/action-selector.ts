@@ -1,5 +1,5 @@
 // src/app/features/game/player/action-selector/action-selector.ts
-import { Component, DestroyRef, effect, inject, model, output, signal } from '@angular/core';
+import { Component, computed, DestroyRef, effect, inject, model, output, signal, untracked } from '@angular/core';
 import { ActionOptions } from './action-options/action-options';
 import {
   ActionOptionsValue,
@@ -28,7 +28,7 @@ const snapDown = (n: number, step: number) => Math.max(0, (Math.ceil(n / step) -
   imports: [ActionOptions],
   host: { class: 'relative flex h-full w-full select-none flex-col' },
   template: `
-    <app-action-options class="shrink-0" [(value)]="options" />
+    <app-action-options class="shrink-0" [value]="options()" (valueChange)="setOptions($event)" />
 
     <!-- Counter area: left half minus, right half plus -->
     <div class="relative flex min-h-0 flex-1">
@@ -100,16 +100,35 @@ export class ActionSelector {
   /** Emits when Cancel is pressed. */
   cancel = output<void>();
 
-  protected readonly options = signal<ActionOptionsValue>(DEFAULT_ACTION_OPTIONS);
-
   private holdTimer: ReturnType<typeof setTimeout> | null = null;
   /** True once a hold has fired, so the click that follows release is ignored. */
   private longPressed = false;
 
+  /** Always the store's value; falls back to defaults if it's null. */
+  protected readonly options = computed(
+    () => this.gameStore.actionOptions() ?? DEFAULT_ACTION_OPTIONS,
+  );
+
+  /** Changes only when a new action starts, not when protect seats are toggled. */
+  private readonly actionId = computed(() => this.gameStore.actionSelect()?.id);
+
   constructor() {
-    effect(() => this.gameStore.setActionOptions(this.options()));
+    // A new action starts from zero, even when this component instance is reused
+    effect(() => {
+      this.actionId();
+      untracked(() => {
+        this.clearTimer();
+        this.longPressed = false;
+        this.count.set(0);
+      });
+    });
     inject(DestroyRef).onDestroy(() => this.clearTimer());
   }
+
+  protected setOptions(value: ActionOptionsValue) {
+    this.gameStore.setActionOptions(value);
+  }
+
 
   protected onApply() {
     this.apply.emit({ count: this.count(), options: this.options() });
