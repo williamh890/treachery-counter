@@ -1,5 +1,14 @@
 // src/app/features/game/player/action-selector/action-selector.ts
-import { Component, computed, DestroyRef, effect, inject, model, output, signal, untracked } from '@angular/core';
+import {
+  Component,
+  computed,
+  DestroyRef,
+  effect,
+  inject,
+  model,
+  output,
+  untracked,
+} from '@angular/core';
 import { ActionOptions } from './action-options/action-options';
 import {
   ActionOptionsValue,
@@ -68,6 +77,21 @@ const snapDown = (n: number, step: number) => Math.max(0, (Math.ceil(n / step) -
       >
         {{ count() }}
       </span>
+      <!-- This seat's life, with a preview of where the action leaves it -->
+      @if (sourceLife(); as life) {
+        <div
+          class="pointer-events-none absolute inset-x-0 bottom-[3cqmin] flex items-center justify-center gap-[2cqmin] text-[6cqmin] leading-none tabular-nums [text-shadow:0_1px_4px_rgb(0_0_0/0.8)]"
+          aria-hidden="true"
+        >
+          <span class="opacity-70">{{ life.before }}</span>
+          @if (life.changed) {
+            <span class="opacity-50">&rarr;</span>
+            <span class="font-semibold transition-colors duration-150" [class]="life.tint">
+              {{ life.after }}
+            </span>
+          }
+        </div>
+      }
     </div>
 
     <!-- Actions: full width across the bottom -->
@@ -112,6 +136,18 @@ export class ActionSelector {
   /** Changes only when a new action starts, not when protect seats are toggled. */
   private readonly actionId = computed(() => this.gameStore.actionSelect()?.id);
 
+  /** Life of the seat this selector is on: committed value vs. the previewed one. */
+  protected readonly sourceLife = computed(() => {
+    const seat = this.gameStore.actionSelect()?.sourceSeat;
+    if (seat === undefined) return null;
+    const before = this.gameStore.players()[seat]?.life;
+    const after = this.gameStore.playerAt(seat)?.life;
+    if (before === undefined || after === undefined) return null;
+
+    const tint = after < before ? 'text-red-300' : after > before ? 'text-emerald-300' : '';
+    return { before, after, changed: after !== before, tint };
+  });
+
   constructor() {
     // A new action starts from zero, even when this component instance is reused
     effect(() => {
@@ -122,13 +158,16 @@ export class ActionSelector {
         this.count.set(0);
       });
     });
+
+    // Live preview: the store derives the previewed players from this count
+    effect(() => this.gameStore.setActionCount(this.count()));
+
     inject(DestroyRef).onDestroy(() => this.clearTimer());
   }
 
   protected setOptions(value: ActionOptionsValue) {
     this.gameStore.setActionOptions(value);
   }
-
 
   protected onApply() {
     this.apply.emit({ count: this.count(), options: this.options() });

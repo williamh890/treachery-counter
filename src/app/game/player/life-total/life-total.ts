@@ -27,7 +27,8 @@ import { TurnControls } from './turn-controls/turn-controls';
 
     <div class="relative">
       <span
-        class="block font-bold leading-none tabular-nums text-[35cqmin] [text-shadow:0_2px_8px_rgb(0_0_0/0.7)]"
+        class="block font-bold leading-none tabular-nums text-[35cqmin] transition-colors duration-150 [text-shadow:0_2px_8px_rgb(0_0_0/0.7)]"
+        [class]="lifeTint()"
       >
         {{ player()?.life }}
       </span>
@@ -65,6 +66,22 @@ export class LifeTotal {
     return opts && opts.target !== 'Player' && this.gameStore.targetSeats().includes(this.seat());
   });
   isProtected = computed(() => this.actionSelect()?.protectSeats.includes(this.seat()) ?? false);
+
+  delta = computed(() => this.gameStore.previewDeltas()[this.seat()] ?? null);
+  lifeDelta = computed(() => this.delta()?.life ?? 0);
+
+  /** Soft tint while an action is previewed: red for damage, green for life gain. */
+  lifeTint = computed(() => {
+    const d = this.lifeDelta();
+    if (d < 0) return 'text-red-300';
+    if (d > 0) return 'text-emerald-300';
+    return '';
+  });
+
+  /** "+5" / "-5" */
+  protected signed(n: number): string {
+    return n > 0 ? `+${n}` : `${n}`;
+  }
 
   toggleProtect() {
     this.gameStore.toggleProtectFromAction(this.seat());

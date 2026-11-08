@@ -54,6 +54,9 @@ type GameState = {
 /** What undo restores. UI state (actionSelect, gameState) is deliberately left out. */
 type Snapshot = Pick<GameState, 'players' | 'turnSeat'>;
 
+/** Per-seat change an open action would cause. */
+export type PreviewDelta = { life: number; infect: number };
+
 const initialState: GameState = {
   gameState: 'SETUP',
   playerCount: 4,
@@ -71,42 +74,81 @@ export const MIN_PLAYERS = 1;
 export const MAX_PLAYERS = 9;
 const MAX_HISTORY = 50;
 
+/**
+ * NOTE: signalStore only has typed overloads for 15 features. Past that, the store type
+ * falls back to an index signature (TS4111). Features of the same kind are merged into
+ * single blocks below to stay well under that limit (currently 8).
+ */
 export const GameStore = signalStore(
   { providedIn: 'root' },
   withState(initialState),
   // Bumped from 1: the persisted shape gained groupId.
   withStorageSync<GameState>({ key: 'game-state', version: 2 }),
 
-  withComputed((store, groups = inject(GroupStore)) => ({
-    /** The selected group, or null if none is chosen (or it's gone / not loaded yet). */
-    group: computed(() => groups.groupsWithMembers().find((g) => g.id === store.groupId()) ?? null),
+  // Plain signals, not state, so withStorageSync never persists them.
+  withProps(() => ({
+    /** Undo history. */
+    _history: signal<Snapshot[]>([]),
+    /** Count currently dialed in on the open action selector (drives the live preview). */
+    _actionCount: signal(0),
+    /** Whether the options sheet is open. */
+    _optionsOpen: signal(false),
   })),
-  withComputed(({ group }) => ({
-    /** The only accounts that can take a seat: members of the selected group. */
-    seatUsers: computed(() => group()?.members ?? []),
-  })),
-  withComputed((store) => ({
-    /** Uids to keep deck listeners open for: only while seats are being set up. */
 
-    deckUserIds: computed(
-      () =>
-        store.gameState() === 'SETUP' && store.players().length > 0
-          ? (store.group()?.memberIds ?? [])
-          : [],
-      { equal: (a, b) => a.length === b.length && a.every((id, i) => id === b[i]) },
-    ),
-    targetSeats: computed<number[]>(() => {
+  withComputed((store, groups = inject(GroupStore)) => {
+    /** The selected group, or null if none is chosen (or it's gone / not loaded yet). */
+    const group = computed(
+      () => groups.groupsWithMembers().find((g) => g.id === store.groupId()) ?? null,
+    );
+
+    /** Players as the UI should show them: the committed state plus the open action, if any. */
+    const displayPlayers = computed(() => {
       const select = store.actionSelect();
       const options = store.actionOptions();
-      return select && options ? hitSeats(store.players(), select, options.target) : [];
-    }),
-  })),
+      const count = store._actionCount();
+      if (!select || !options || count === 0) return store.players();
+      return applyActionTo(store.players(), select, { count, options });
+    });
 
-  // Undo history. A plain signal prop, not state, so withStorageSync never persists it.
-  withProps(() => ({ _history: signal<Snapshot[]>([]) })),
-  withComputed(({ _history }) => ({
-    canUndo: computed(() => _history().length > 0),
-  })),
+    return {
+      group,
+      /** The only accounts that can take a seat: members of the selected group. */
+      seatUsers: computed(() => group()?.members ?? []),
+
+      /** Uids to keep deck listeners open for: only while seats are being set up. */
+      deckUserIds: computed(
+        () =>
+          store.gameState() === 'SETUP' && store.players().length > 0
+            ? (group()?.memberIds ?? [])
+            : [],
+        { equal: (a, b) => a.length === b.length && a.every((id, i) => id === b[i]) },
+      ),
+
+      targetSeats: computed<number[]>(() => {
+        const select = store.actionSelect();
+        const options = store.actionOptions();
+        return select && options ? hitSeats(store.players(), select, options.target) : [];
+      }),
+
+      canUndo: computed(() => store._history().length > 0),
+      optionsOpen: store._optionsOpen.asReadonly(),
+
+      displayPlayers,
+
+      /** Per-seat change the open action would cause. Empty when nothing is previewed. */
+      previewDeltas: computed<PreviewDelta[]>(() => {
+        const before = store.players();
+        const after = displayPlayers();
+        if (before === after) return [];
+        return after.map((p, seat) => ({
+          life: p.life - before[seat].life,
+          infect: p.infect - before[seat].infect,
+        }));
+      }),
+    };
+  }),
+
+  // Undo + options sheet
   withMethods((store) => ({
     /** Call at the start of every user-level action, before changing anything. */
     _checkpoint() {
@@ -122,6 +164,7 @@ export const GameStore = signalStore(
       if (!last) return;
       store._history.update((h) => h.slice(0, -1));
       // actionSelect is cleared so a restored state can't leave the selector open
+      store._actionCount.set(0);
       patchState(store, { ...last, actionSelect: null });
     },
     undoTurn() {
@@ -137,7 +180,14 @@ export const GameStore = signalStore(
 
       const target = history[i]; // state before the first action of this turn
       store._history.set(history.slice(0, i));
+      store._actionCount.set(0);
       patchState(store, { ...target, actionSelect: null });
+    },
+    openOptions() {
+      store._optionsOpen.set(true);
+    },
+    closeOptions() {
+      store._optionsOpen.set(false);
     },
   })),
 
@@ -168,9 +218,11 @@ export const GameStore = signalStore(
         players: players.map((p, i) => (i === seat ? { ...p, isGuest } : p)),
       }));
     },
+    /** Reads the display players, so the open action's preview shows up on every seat. */
     playerAt(seat: number): Player | undefined {
-      return store.players()[seat];
+      return store.displayPlayers()[seat];
     },
+    /** Uses the committed players, not the preview. */
     playersReady(): boolean {
       const players = store.players();
       return players.length > 0 && players.every((p) => p.deck || p.isGuest);
@@ -181,10 +233,12 @@ export const GameStore = signalStore(
 
     resetGame() {
       store._clearHistory();
+      store._actionCount.set(0);
       patchState(store, initialState);
     },
     startGameSetup() {
       store._clearHistory();
+      store._actionCount.set(0);
       const players = Array.from({ length: store.playerCount() }, (_, i): Player => ({
         id: i + 1,
         name: `Player ${i + 1}`,
@@ -197,27 +251,31 @@ export const GameStore = signalStore(
         deck: null,
         isGuest: false,
       }));
-      patchState(store, { gameState: 'SETUP', players, turnSeat: null });
+      patchState(store, { gameState: 'SETUP', players, turnSeat: null, actionSelect: null });
     },
     playGame() {
       store._clearHistory();
+      store._actionCount.set(0);
       patchState(store, { gameState: 'PLAY', turnSeat: null, actionSelect: null });
     },
   })),
 
   // Turn methods
   withMethods((store) => {
-    const advanceTurn = () =>
+    const advanceTurn = () => {
+      store._actionCount.set(0);
       patchState(store, ({ turnSeat, players }) => ({
         turnSeat: ((turnSeat ?? -1) + 1) % players.length,
         actionSelect: null,
       }));
+    };
 
     return {
       /** For the turn-skip effect: moves the turn without creating an undo step. */
       _advanceTurn: advanceTurn,
       setTurn(playerSeat: number) {
         store._checkpoint();
+        store._actionCount.set(0);
         patchState(store, { turnSeat: playerSeat, actionSelect: null });
       },
       passTurn() {
@@ -230,10 +288,16 @@ export const GameStore = signalStore(
   // Gameplay methods
   withMethods((store) => ({
     setActionSelect(sourceSeat: number, targetSeat: number) {
+      store._actionCount.set(0);
       patchState(store, {
         actionSelect: { id: Date.now(), sourceSeat, targetSeat, protectSeats: [] },
         actionOptions: DEFAULT_ACTION_OPTIONS,
       });
+    },
+
+    /** Called by the action selector as its count changes; drives the live preview. */
+    setActionCount(count: number) {
+      store._actionCount.set(Math.max(0, count));
     },
 
     toggleProtectFromAction(seat: number) {
@@ -252,9 +316,13 @@ export const GameStore = signalStore(
         },
       });
     },
+
+    /** Cancel: the preview is derived, so clearing the selection reverts it. */
     clearActionSelect() {
+      store._actionCount.set(0);
       patchState(store, { actionSelect: null });
     },
+
     applyAction(action: ActionSubmission) {
       const select = store.actionSelect();
       if (!select) {
@@ -262,80 +330,13 @@ export const GameStore = signalStore(
       }
       store._checkpoint(); // after the guard, so no-ops don't create undo steps
 
-      const { targetSeat, sourceSeat, protectSeats } = select;
-      const { count, options } = action;
-      const current = store.players();
-
-      // Seats the action is aimed at. Group targets skip eliminated players;
-      // an explicit single target is always honored.
-      const isTargeted = (seat: number): boolean => {
-        const inGame = current[seat]?.status !== 'eliminated';
-        switch (options.target) {
-          case 'Player':
-            return seat === targetSeat;
-          case 'All':
-            return inGame;
-          case 'Opponents':
-            return inGame && seat !== sourceSeat;
-        }
-      };
-
-      // Protected seats are excluded from the action entirely
-      const isExcluded = (seat: number) => protectSeats.includes(seat);
-      const isHit = (seat: number) => isTargeted(seat) && !isExcluded(seat);
-
-      const hitCount = current.filter((_, seat) => isHit(seat)).length;
-
-      // What the source gains is tied to harm that actually landed
-      const sourceGain = (() => {
-        switch (options.type) {
-          case 'Extort':
-            return count * hitCount;
-          case 'Drain':
-          case 'Lifelink':
-            return hitCount > 0 ? count : 0;
-          default:
-            return 0;
-        }
-      })();
-
+      store._actionCount.set(0);
       patchState(store, ({ players }) => ({
         actionSelect: null,
-        players: players.map((player, seat): Player => {
-          const hit = isHit(seat);
-          const gains = seat === sourceSeat && sourceGain > 0 && !isExcluded(seat);
-          if (!hit && !gains) {
-            return player;
-          }
-
-          let life = player.life;
-          let infect = player.infect;
-          const commanderDmg = { ...player.commanderDmg };
-
-          if (hit) {
-            switch (options.type) {
-              case 'Healing':
-                life += count;
-                break;
-              case 'Infect':
-                infect += count;
-                break;
-              default: // Damage, Drain, Extort, Lifelink
-                life -= count;
-                if (options.tags.includes('Commander')) {
-                  commanderDmg[sourceSeat] = (commanderDmg[sourceSeat] ?? 0) + count;
-                }
-            }
-          }
-
-          if (gains) {
-            life += sourceGain;
-          }
-
-          return { ...player, life, infect, commanderDmg };
-        }),
+        players: applyActionTo(players, select, action),
       }));
     },
+
     applyDeathDescision(decision: DeathDecision) {
       const { kill, protect } = decision;
 
@@ -380,6 +381,7 @@ export const GameStore = signalStore(
       };
 
       // Keeps statuses in line with the counters. Runs after changes and after undo.
+      // Reads the committed players, so a previewed lethal hit never triggers a death prompt.
       effect(() => {
         const players = store.players();
 
@@ -405,18 +407,6 @@ export const GameStore = signalStore(
       });
     },
   })),
-  withProps(() => ({ _optionsOpen: signal(false) })),
-  withComputed(({ _optionsOpen }) => ({
-    optionsOpen: _optionsOpen.asReadonly(),
-  })),
-  withMethods((store) => ({
-    openOptions() {
-      store._optionsOpen.set(true);
-    },
-    closeOptions() {
-      store._optionsOpen.set(false);
-    },
-  })),
 );
 
 /** Seats an action hits. Protected seats are excluded; group targets skip eliminated players. */
@@ -438,4 +428,81 @@ function hitSeats(
             : inGame && seat !== sourceSeat;
       return targeted && !protectSeats.includes(seat);
     });
+}
+
+/** Pure: the players after `action` lands. Shared by the live preview and the real apply. */
+function applyActionTo(
+  players: Player[],
+  select: ActionSelect,
+  action: ActionSubmission,
+): Player[] {
+  const { targetSeat, sourceSeat, protectSeats } = select;
+  const { count, options } = action;
+
+  // Seats the action is aimed at. Group targets skip eliminated players;
+  // an explicit single target is always honored.
+  const isTargeted = (seat: number): boolean => {
+    const inGame = players[seat]?.status !== 'eliminated';
+    switch (options.target) {
+      case 'Player':
+        return seat === targetSeat;
+      case 'All':
+        return inGame;
+      case 'Opponents':
+        return inGame && seat !== sourceSeat;
+    }
+  };
+
+  // Protected seats are excluded from the action entirely
+  const isExcluded = (seat: number) => protectSeats.includes(seat);
+  const isHit = (seat: number) => isTargeted(seat) && !isExcluded(seat);
+
+  const hitCount = players.filter((_, seat) => isHit(seat)).length;
+
+  // What the source gains is tied to harm that actually landed
+  const sourceGain = (() => {
+    switch (options.type) {
+      case 'Extort':
+        return count * hitCount;
+      case 'Drain':
+      case 'Lifelink':
+        return hitCount > 0 ? count : 0;
+      default:
+        return 0;
+    }
+  })();
+
+  return players.map((player, seat): Player => {
+    const hit = isHit(seat);
+    const gains = seat === sourceSeat && sourceGain > 0 && !isExcluded(seat);
+    if (!hit && !gains) {
+      return player;
+    }
+
+    let life = player.life;
+    let infect = player.infect;
+    const commanderDmg = { ...player.commanderDmg };
+
+    if (hit) {
+      switch (options.type) {
+        case 'Healing':
+          life += count;
+          break;
+        case 'Infect':
+          infect += count;
+          break;
+        default: // Damage, Drain, Extort, Lifelink
+          life -= count;
+          if (options.tags.includes('Commander')) {
+            commanderDmg[sourceSeat] = (commanderDmg[sourceSeat] ?? 0) + count;
+          }
+      }
+    }
+
+    if (gains) {
+      life += sourceGain;
+    }
+
+    return { ...player, life, infect, commanderDmg };
+  });
 }
