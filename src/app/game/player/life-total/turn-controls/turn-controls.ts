@@ -1,5 +1,5 @@
 // src/app/features/game/player/life-total/turn-controls/turn-controls.ts
-import { Component, inject } from '@angular/core';
+import { Component, computed, inject } from '@angular/core';
 import { GameStore } from '@state/game.store';
 
 @Component({
@@ -8,7 +8,9 @@ import { GameStore } from '@state/game.store';
   host: { class: 'pointer-events-none absolute inset-0' },
   template: `
     <!-- Active player highlight -->
-    <div class="absolute inset-0 border-4 border-indigo-400/80" aria-hidden="true"></div>
+    @if (showTurnBorder()) {
+      <div class="absolute inset-0 border-4 border-indigo-400/80" aria-hidden="true"></div>
+    }
 
     <!-- Undo + pass turn + options: full width across the bottom -->
     <div class="pointer-events-auto absolute inset-x-0 bottom-0 flex gap-2 p-2">
@@ -42,6 +44,7 @@ import { GameStore } from '@state/game.store';
 export class TurnControls {
   private gameStore = inject(GameStore);
 
+  showTurnBorder = computed(() => this.gameStore.actionSelect() === null);
   canUndo = this.gameStore.canUndo;
 
   undo() {

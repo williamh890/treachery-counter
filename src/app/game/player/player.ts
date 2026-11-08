@@ -53,7 +53,7 @@ import { optionColor } from './action-selector/action-options/action-options.con
     // template: add after the tint, before the content wrapper
     @if (outlineColor(); as color) {
       <div
-        class="pointer-events-none absolute inset-0 z-20 border-[3px]"
+        class="pointer-events-none absolute inset-0 z-20 border-[4px]"
         [style.border-color]="color"
         aria-hidden="true"
       ></div>
