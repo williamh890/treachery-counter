@@ -37,6 +37,7 @@ import { TurnControls } from './turn-controls/turn-controls';
         <app-protect-button
           class="absolute left-full top-1/2 ml-[3cqmin] -translate-y-1/2"
           [active]="isProtected()"
+          [life]="committedLife()"
           (pressed)="toggleProtect()"
         />
       }
@@ -69,12 +70,13 @@ export class LifeTotal {
 
   delta = computed(() => this.gameStore.previewDeltas()[this.seat()] ?? null);
   lifeDelta = computed(() => this.delta()?.life ?? 0);
+  committedLife = computed(() => this.gameStore.players()[this.seat()]?.life ?? null);
 
   /** Soft tint while an action is previewed: red for damage, green for life gain. */
   lifeTint = computed(() => {
     const d = this.lifeDelta();
-    if (d < 0) return 'text-red-300';
-    if (d > 0) return 'text-emerald-300';
+    if (d < 0) return 'text-red-100';
+    if (d > 0) return 'text-emerald-100';
     return '';
   });
 

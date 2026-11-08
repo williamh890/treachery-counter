@@ -12,6 +12,7 @@ import {
   availableTypes,
   normalizeOptions,
 } from './action-options.config';
+import { OptionIcon } from './option-icon';
 
 interface OptionGroup {
   id: keyof ActionOptionsValue;
@@ -32,6 +33,7 @@ const TARGET_GROUP: OptionGroup = {
 @Component({
   selector: 'app-action-options',
   host: { class: 'block' },
+  imports: [OptionIcon],
   template: `
     <div class="flex flex-col items-center gap-[3cqmin] px-[3cqmin] py-[2cqmin]">
       @for (row of rows(); track $index) {
@@ -57,21 +59,9 @@ const TARGET_GROUP: OptionGroup = {
                   [attr.aria-pressed]="group.mode === 'multi' ? selected : null"
                   (click)="choose(group, option)"
                 >
-                  <!-- Indicator slot: same size in every state, so nothing shifts -->
-                  <span class="grid size-[1.1em] shrink-0 place-items-center" aria-hidden="true">
-                    @if (selected) {
-                      <span class="text-[1em] leading-none">&#x2713;</span>
-                    } @else {
-                      <svg
-                        class="size-[0.9em]"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2.5"
-                      >
-                        <circle cx="12" cy="12" r="8" stroke-dasharray="4 3" />
-                      </svg>
-                    }
+                  <!-- Icon slot: same size in every state, so nothing shifts -->
+                  <span class="size-[1.4em] shrink-0" aria-hidden="true">
+                    <app-option-icon [name]="option" />
                   </span>
                   {{ option }}
                 </button>
@@ -150,5 +140,9 @@ export class ActionOptions {
         }
       }
     });
+  }
+
+  protected asTarget(option: string): ActionTarget {
+    return option as ActionTarget;
   }
 }

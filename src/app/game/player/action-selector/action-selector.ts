@@ -39,11 +39,12 @@ const snapDown = (n: number, step: number) => Math.max(0, (Math.ceil(n / step) -
   template: `
     <app-action-options class="shrink-0" [value]="options()" (valueChange)="setOptions($event)" />
 
-    <!-- Counter area: left half minus, right half plus -->
-    <div class="relative flex min-h-0 flex-1">
+    <!-- Counter area: left half minus, right half plus. Its own size container, so the
+         count and glyphs scale to the space they actually have. -->
+    <div class="relative flex min-h-0 flex-1 [container-type:size]">
       <button
         type="button"
-        class="flex flex-1 touch-manipulation items-center justify-start pl-[10%] text-[12cqmin] leading-none opacity-70 transition active:bg-white/10 disabled:opacity-20 disabled:active:bg-transparent [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]"
+        class="flex flex-1 touch-manipulation items-center justify-start pl-[10%] text-[20cqmin] leading-none opacity-70 transition active:bg-white/10 disabled:opacity-20 disabled:active:bg-transparent [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]"
         aria-label="Decrease"
         [disabled]="count() === 0"
         (pointerdown)="startHold(-1)"
@@ -58,7 +59,7 @@ const snapDown = (n: number, step: number) => Math.max(0, (Math.ceil(n / step) -
 
       <button
         type="button"
-        class="flex flex-1 touch-manipulation items-center justify-end pr-[10%] text-[12cqmin] leading-none opacity-70 transition active:bg-white/10 [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]"
+        class="flex flex-1 touch-manipulation items-center justify-end pr-[10%] text-[20cqmin] leading-none opacity-70 transition active:bg-white/10 [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]"
         aria-label="Increase"
         (pointerdown)="startHold(1)"
         (pointerup)="endHold()"
@@ -72,33 +73,50 @@ const snapDown = (n: number, step: number) => Math.max(0, (Math.ceil(n / step) -
 
       <!-- Count sits above the buttons but lets taps fall through to them -->
       <span
-        class="pointer-events-none absolute inset-0 flex items-center justify-center font-bold leading-none tabular-nums text-[35cqmin] [text-shadow:0_2px_8px_rgb(0_0_0/0.7)]"
-        aria-live="polite"
+        class="pointer-events-none absolute inset-0 flex items-center justify-center font-bold leading-none tabular-nums [text-shadow:0_2px_8px_rgb(0_0_0/0.7)]"
+        [style.font-size]="countFontSize()"
       >
-        {{ count() }}
-      </span>
-      <!-- This seat's life, with a preview of where the action leaves it -->
-      @if (sourceLife(); as life) {
-        <div
-          class="pointer-events-none absolute inset-x-0 bottom-[3cqmin] flex items-center justify-center gap-[2cqmin] text-[6cqmin] leading-none tabular-nums [text-shadow:0_1px_4px_rgb(0_0_0/0.8)]"
-          aria-hidden="true"
-        >
-          <span class="opacity-70">{{ life.before }}</span>
-          @if (life.changed) {
-            <span class="opacity-50">&rarr;</span>
-            <span class="font-semibold transition-colors duration-150" [class]="life.tint">
-              {{ life.after }}
+        <!-- Only as wide as the digits, so the preview can anchor to it -->
+        <span class="relative" aria-live="polite">
+          {{ count() }}
+
+          <!-- This seat's life, with a preview of where the action leaves it.
+               Absolutely positioned, so the minus/plus split stays 50/50. -->
+          @if (sourceLife(); as life) {
+            <span
+              class="absolute bottom-full left-1/2 mb-[2cqmin] flex -translate-x-1/2 items-center gap-[2cqmin] whitespace-nowrap text-[8cqmin] font-semibold leading-none"
+              aria-hidden="true"
+            >
+              <span class="opacity-70">{{ life.before }}</span>
+              @if (life.changed) {
+                <!-- Replaces <span class="opacity-50">&rarr;</span> -->
+                <svg
+                  viewBox="0 0 24 24"
+                  class="size-[1em] shrink-0 opacity-50"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M4 12h16m-6-6 6 6-6 6" />
+                </svg>
+                <span class="transition-colors duration-150" [class]="life.tint">
+                  {{ life.after }}
+                </span>
+              }
             </span>
           }
-        </div>
-      }
+        </span>
+      </span>
     </div>
 
-    <!-- Actions: full width across the bottom -->
-    <div class="flex shrink-0 gap-2 p-2">
+    <!-- Actions: full width across the bottom, sized from the tile -->
+    <div class="flex shrink-0 gap-[2cqmin] p-[2cqmin]">
       <button
         type="button"
-        class="min-h-14 flex-[1] touch-manipulation rounded-full border-2 border-neutral-500 bg-neutral-800 text-xl text-white transition active:bg-neutral-700 [-webkit-tap-highlight-color:transparent]"
+        class="aspect-square h-[clamp(2.5rem,11cqmin,3.5rem)] shrink-0 touch-manipulation rounded-full border-2 border-neutral-500 bg-neutral-800 text-white transition active:bg-neutral-700 [font-size:clamp(0.875rem,5cqmin,1.25rem)] [-webkit-tap-highlight-color:transparent]"
         aria-label="Cancel"
         (click)="cancel.emit()"
       >
@@ -106,7 +124,7 @@ const snapDown = (n: number, step: number) => Math.max(0, (Math.ceil(n / step) -
       </button>
       <button
         type="button"
-        class="min-h-14 flex-[3] touch-manipulation rounded-full border-2 border-white bg-white text-lg font-semibold text-black transition active:bg-neutral-200 [-webkit-tap-highlight-color:transparent]"
+        class="h-[clamp(2.5rem,11cqmin,3.5rem)] flex-1 touch-manipulation rounded-full border-2 border-white bg-white font-semibold text-black transition active:bg-neutral-200 [font-size:clamp(0.875rem,5cqmin,1.25rem)] [-webkit-tap-highlight-color:transparent]"
         (click)="onApply()"
       >
         Apply
@@ -136,6 +154,11 @@ export class ActionSelector {
   /** Changes only when a new action starts, not when protect seats are toggled. */
   private readonly actionId = computed(() => this.gameStore.actionSelect()?.id);
 
+  /** Relative to the counter area: fits the height, and the width for 1-2 or 3+ digits. */
+  protected readonly countFontSize = computed(() =>
+    String(this.count()).length >= 3 ? 'min(42cqh, 26cqw)' : 'min(55cqh, 40cqw)',
+  );
+
   /** Life of the seat this selector is on: committed value vs. the previewed one. */
   protected readonly sourceLife = computed(() => {
     const seat = this.gameStore.actionSelect()?.sourceSeat;
@@ -144,7 +167,7 @@ export class ActionSelector {
     const after = this.gameStore.playerAt(seat)?.life;
     if (before === undefined || after === undefined) return null;
 
-    const tint = after < before ? 'text-red-300' : after > before ? 'text-emerald-300' : '';
+    const tint = after < before ? 'text-red-100' : after > before ? 'text-emerald-100' : '';
     return { before, after, changed: after !== before, tint };
   });
 
