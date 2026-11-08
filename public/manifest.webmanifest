@@ -1,7 +1,9 @@
 {
+  "id": "./",
   "name": "treachery-counter",
   "short_name": "treachery-counter",
-  "display": "standalone",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
   "scope": "./",
   "start_url": "./",
   "icons": [
