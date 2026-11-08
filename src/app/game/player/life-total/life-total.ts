@@ -32,7 +32,7 @@ import { TurnControls } from './turn-controls/turn-controls';
         {{ player()?.life }}
       </span>
 
-      @if (actionSelect()) {
+      @if (isTargeted()) {
         <app-protect-button
           class="absolute left-full top-1/2 ml-[3cqmin] -translate-y-1/2"
           [active]="isProtected()"
@@ -60,6 +60,10 @@ export class LifeTotal {
   player = computed(() => this.gameStore.playerAt(this.seat()));
   isMyTurn = computed(() => this.gameStore.turnSeat() === this.seat());
   actionSelect = computed(() => this.gameStore.actionSelect());
+  isTargeted = computed(() => {
+    const opts = this.gameStore.actionOptions();
+    return opts && opts.target !== 'Player' && this.gameStore.targetSeats().includes(this.seat());
+  });
   isProtected = computed(() => this.actionSelect()?.protectSeats.includes(this.seat()) ?? false);
 
   toggleProtect() {
