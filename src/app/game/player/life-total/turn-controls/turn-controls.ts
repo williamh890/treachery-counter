@@ -1,28 +1,18 @@
-// src/app/features/game/player/life-total/turn-controls/turn-controls.ts
 import { Component, computed, inject } from '@angular/core';
 import { GameStore } from '@state/game.store';
+import { UndoButton } from './undo-button/undo-button';
 
 @Component({
   selector: 'app-turn-controls',
-  // Covers the tile but lets taps through; only the button strip takes them
+  imports: [UndoButton],
   host: { class: 'pointer-events-none absolute inset-0' },
   template: `
-    <!-- Active player highlight -->
     @if (showTurnBorder()) {
       <div class="absolute inset-0 border-4 border-indigo-400/80" aria-hidden="true"></div>
     }
 
-    <!-- Undo + pass turn + options: full width across the bottom -->
-    <div class="pointer-events-auto absolute inset-x-0 bottom-0 flex gap-2 p-2">
-      <button
-        type="button"
-        class="flex min-h-14 touch-manipulation items-center justify-center gap-1.5 rounded-full border-2 border-neutral-500 bg-neutral-800 px-5 text-lg font-semibold text-white transition active:bg-neutral-700 disabled:opacity-30 disabled:active:bg-neutral-800 [-webkit-tap-highlight-color:transparent]"
-        aria-label="Undo last action"
-        [disabled]="!canUndo()"
-        (click)="undo()"
-      >
-        <span aria-hidden="true">↶</span>
-      </button>
+    <div class="pointer-events-auto absolute inset-x-0 bottom-0 flex items-center gap-2 p-2">
+      <app-undo-button [disabled]="!canUndo()" (undo)="undo()" (undoTurn)="undoTurn()" />
       <button
         type="button"
         class="min-h-14 flex-1 touch-manipulation rounded-full border-2 border-indigo-300 bg-indigo-500 text-lg font-semibold text-white transition active:bg-indigo-400 [-webkit-tap-highlight-color:transparent]"
@@ -50,11 +40,12 @@ export class TurnControls {
   undo() {
     this.gameStore.undo();
   }
-
+  undoTurn() {
+    this.gameStore.undoTurn();
+  }
   passTurn() {
     this.gameStore.passTurn();
   }
-
   openOptions() {
     this.gameStore.openOptions();
   }

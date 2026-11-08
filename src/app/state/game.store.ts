@@ -124,6 +124,21 @@ export const GameStore = signalStore(
       // actionSelect is cleared so a restored state can't leave the selector open
       patchState(store, { ...last, actionSelect: null });
     },
+    undoTurn() {
+      const history = store._history();
+      const current = store.turnSeat();
+      if (current === null) return;
+
+      // Walk back over the checkpoints taken during the current turn
+      let i = history.length;
+      while (i > 0 && history[i - 1].turnSeat === current) i--;
+
+      if (i === history.length) return; // nothing has happened this turn yet
+
+      const target = history[i]; // state before the first action of this turn
+      store._history.set(history.slice(0, i));
+      patchState(store, { ...target, actionSelect: null });
+    },
   })),
 
   // Game setup methods
