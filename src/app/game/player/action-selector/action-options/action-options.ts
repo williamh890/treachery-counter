@@ -33,9 +33,9 @@ const TARGET_GROUP: OptionGroup = {
   selector: 'app-action-options',
   host: { class: 'block' },
   template: `
-    <div class="flex flex-col items-center gap-3 px-3 py-2">
+    <div class="flex flex-col items-center gap-[3cqmin] px-[3cqmin] py-[2cqmin]">
       @for (row of rows(); track $index) {
-        <div class="flex flex-wrap justify-center gap-2">
+        <div class="flex flex-wrap justify-center gap-[2.5cqmin]">
           @for (group of row; track group.id) {
             <!-- display: contents lets every pill in the row wrap as one flow -->
             <div
@@ -58,13 +58,12 @@ const TARGET_GROUP: OptionGroup = {
                   (click)="choose(group, option)"
                 >
                   <!-- Indicator slot: same size in every state, so nothing shifts -->
-                  <span class="grid size-4 shrink-0 place-items-center" aria-hidden="true">
+                  <span class="grid size-[1.1em] shrink-0 place-items-center" aria-hidden="true">
                     @if (selected) {
-                      <span class="text-base leading-none">&#x2713;</span>
+                      <span class="text-[1em] leading-none">&#x2713;</span>
                     } @else {
-                      <!-- TODO: Replace this placeholder SVG with your custom icon later -->
                       <svg
-                        class="size-3.5"
+                        class="size-[0.9em]"
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="currentColor"
@@ -115,10 +114,11 @@ export class ActionOptions {
   }
 
   protected pillClass(group: OptionGroup, option: string, selected: boolean) {
+    const size = 'min-h-[clamp(1.75rem,11cqmin,3.5rem)] text-[clamp(0.625rem,4cqmin,1.125rem)]';
     const shape =
       group.id === 'target'
-        ? 'min-h-12 rounded-full px-4 py-1 text-sm font-semibold'
-        : 'min-h-12 rounded-lg pl-3 pr-4 text-base font-semibold';
+        ? `${size} rounded-full px-[3.5cqmin] py-0.5 font-semibold`
+        : `${size} rounded-lg pl-[3cqmin] pr-[4cqmin] font-semibold`;
 
     if (this.colors[option]) {
       return `${shape} bg-[var(--fill)] text-[var(--ink)] ${
