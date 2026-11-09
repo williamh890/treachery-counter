@@ -1,13 +1,16 @@
 // src/app/features/game/player/action-selector/action-selector.ts
 import {
+  afterNextRender,
   Component,
   computed,
   DestroyRef,
   effect,
+  ElementRef,
   inject,
   model,
   output,
   untracked,
+  viewChild,
 } from '@angular/core';
 import { ActionOptions } from './action-options/action-options';
 import {
@@ -44,7 +47,7 @@ const snapDown = (n: number, step: number) => Math.max(0, (Math.ceil(n / step) -
     <div class="relative flex min-h-0 flex-1 [container-type:size]">
       <button
         type="button"
-        class="flex flex-1 touch-manipulation items-center justify-start pl-[10%] text-[20cqmin] leading-none opacity-70 transition active:bg-white/10 disabled:opacity-20 disabled:active:bg-transparent [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]"
+        class="group flex flex-1 touch-manipulation items-center justify-start pl-[10%] text-[20cqmin] leading-none opacity-70 transition active:bg-white/10 disabled:opacity-20 disabled:active:bg-transparent [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]"
         aria-label="Decrease"
         [disabled]="count() === 0"
         (pointerdown)="startHold(-1)"
@@ -54,12 +57,12 @@ const snapDown = (n: number, step: number) => Math.max(0, (Math.ceil(n / step) -
         (contextmenu)="$event.preventDefault()"
         (click)="onClick(-1)"
       >
-        <span aria-hidden="true">&minus;</span>
+        <span aria-hidden="true" class="transition-transform group-active:scale-90">&minus;</span>
       </button>
 
       <button
         type="button"
-        class="flex flex-1 touch-manipulation items-center justify-end pr-[10%] text-[20cqmin] leading-none opacity-70 transition active:bg-white/10 [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]"
+        class="group flex flex-1 touch-manipulation items-center justify-end pr-[10%] text-[20cqmin] leading-none opacity-70 transition active:bg-white/10 [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]"
         aria-label="Increase"
         (pointerdown)="startHold(1)"
         (pointerup)="endHold()"
@@ -68,7 +71,7 @@ const snapDown = (n: number, step: number) => Math.max(0, (Math.ceil(n / step) -
         (contextmenu)="$event.preventDefault()"
         (click)="onClick(1)"
       >
-        <span aria-hidden="true">+</span>
+        <span aria-hidden="true" class="transition-transform group-active:scale-90">+</span>
       </button>
 
       <!-- Count sits above the buttons but lets taps fall through to them -->
@@ -78,7 +81,8 @@ const snapDown = (n: number, step: number) => Math.max(0, (Math.ceil(n / step) -
       >
         <!-- Only as wide as the digits, so the preview can anchor to it -->
         <span class="relative" aria-live="polite">
-          {{ count() }}
+          <!-- Digits get their own element so the bump scales them, not the preview -->
+          <span #countEl class="inline-block">{{ count() }}</span>
 
           <!-- This seat's life, with a preview of where the action leaves it.
                Absolutely positioned, so the minus/plus split stays 50/50. -->
@@ -89,7 +93,6 @@ const snapDown = (n: number, step: number) => Math.max(0, (Math.ceil(n / step) -
             >
               <span class="opacity-70">{{ life.before }}</span>
               @if (life.changed) {
-                <!-- Replaces <span class="opacity-50">&rarr;</span> -->
                 <svg
                   viewBox="0 0 24 24"
                   class="size-[1em] shrink-0 opacity-50"
@@ -116,7 +119,7 @@ const snapDown = (n: number, step: number) => Math.max(0, (Math.ceil(n / step) -
     <div class="flex shrink-0 gap-[2cqmin] p-[2cqmin]">
       <button
         type="button"
-        class="aspect-square h-[clamp(2.5rem,11cqmin,3.5rem)] shrink-0 touch-manipulation rounded-full border-2 border-neutral-500 bg-neutral-800 text-white transition active:bg-neutral-700 [font-size:clamp(0.875rem,5cqmin,1.25rem)] [-webkit-tap-highlight-color:transparent]"
+        class="aspect-square h-[clamp(2.5rem,11cqmin,3.5rem)] shrink-0 touch-manipulation rounded-full border-2 border-neutral-500 bg-neutral-800 text-white transition active:scale-95 active:bg-neutral-700 [font-size:clamp(0.875rem,5cqmin,1.25rem)] [-webkit-tap-highlight-color:transparent]"
         aria-label="Cancel"
         (click)="cancel.emit()"
       >
@@ -124,7 +127,7 @@ const snapDown = (n: number, step: number) => Math.max(0, (Math.ceil(n / step) -
       </button>
       <button
         type="button"
-        class="h-[clamp(2.5rem,11cqmin,3.5rem)] flex-1 touch-manipulation rounded-full border-2 border-white bg-white font-semibold text-black transition active:bg-neutral-200 [font-size:clamp(0.875rem,5cqmin,1.25rem)] [-webkit-tap-highlight-color:transparent]"
+        class="h-[clamp(2.5rem,11cqmin,3.5rem)] flex-1 touch-manipulation rounded-full border-2 border-white bg-white font-semibold text-black transition active:scale-95 active:bg-neutral-200 [font-size:clamp(0.875rem,5cqmin,1.25rem)] [-webkit-tap-highlight-color:transparent]"
         (click)="onApply()"
       >
         Apply
@@ -134,6 +137,10 @@ const snapDown = (n: number, step: number) => Math.max(0, (Math.ceil(n / step) -
 })
 export class ActionSelector {
   private gameStore = inject(GameStore);
+  private host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private countEl = viewChild<ElementRef<HTMLElement>>('countEl');
+  private reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
   /** Current count. Two-way bindable, e.g. [(count)]="..."; never goes below 0. */
   count = model(0);
 
@@ -167,7 +174,7 @@ export class ActionSelector {
     const after = this.gameStore.playerAt(seat)?.life;
     if (before === undefined || after === undefined) return null;
 
-    const tint = after < before ? 'text-red-100' : after > before ? 'text-emerald-100' : '';
+    const tint = after < before ? 'text-red-300' : after > before ? 'text-emerald-300' : '';
     return { before, after, changed: after !== before, tint };
   });
 
@@ -185,7 +192,46 @@ export class ActionSelector {
     // Live preview: the store derives the previewed players from this count
     effect(() => this.gameStore.setActionCount(this.count()));
 
+    // Count bump: a quick pulse whenever the number changes (skips the initial value)
+    let first = true;
+    effect(() => {
+      this.count();
+      if (first) {
+        first = false;
+        return;
+      }
+      untracked(() =>
+        this.play(
+          this.countEl()?.nativeElement,
+          [
+            { transform: 'scale(1)' },
+            { transform: 'scale(1.05)', offset: 0.4 },
+            { transform: 'scale(1)' },
+          ],
+          150,
+        ),
+      );
+    });
+
+    // Entrance: fade and scale in when the selector opens
+    afterNextRender(() =>
+      this.play(
+        this.host.nativeElement,
+        [
+          { opacity: 0, transform: 'scale(0.98)' },
+          { opacity: 1, transform: 'scale(1)' },
+        ],
+        140,
+      ),
+    );
+
     inject(DestroyRef).onDestroy(() => this.clearTimer());
+  }
+
+  /** Runs a short animation unless the user prefers reduced motion. */
+  private play(el: HTMLElement | undefined, keyframes: Keyframe[], duration: number) {
+    if (!el || this.reducedMotion) return;
+    el.animate(keyframes, { duration, easing: 'ease-out' });
   }
 
   protected setOptions(value: ActionOptionsValue) {

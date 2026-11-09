@@ -49,7 +49,7 @@ const TARGET_GROUP: OptionGroup = {
                 @let selected = isSelected(group, option);
                 <button
                   type="button"
-                  class="flex touch-manipulation items-center gap-2 border-2 transition [-webkit-tap-highlight-color:transparent]"
+                  class="flex touch-manipulation items-center gap-2 border-2 transition active:scale-95 [-webkit-tap-highlight-color:transparent]"
                   [class]="pillClass(group, option, selected)"
                   [style.--fill]="colors[option]?.fill ?? null"
                   [style.--ink]="colors[option]?.ink ?? null"
@@ -57,7 +57,7 @@ const TARGET_GROUP: OptionGroup = {
                   [attr.role]="group.mode === 'single' ? 'radio' : null"
                   [attr.aria-checked]="group.mode === 'single' ? selected : null"
                   [attr.aria-pressed]="group.mode === 'multi' ? selected : null"
-                  (click)="choose(group, option)"
+                  (click)="choose(group, option, $event)"
                 >
                   <!-- Icon slot: same size in every state, so nothing shifts -->
                   <span class="size-[1.4em] shrink-0" aria-hidden="true">
@@ -126,7 +126,8 @@ export class ActionOptions {
     }`;
   }
 
-  protected choose(group: OptionGroup, option: string) {
+  protected choose(group: OptionGroup, option: string, event: MouseEvent) {
+    this.pop(event.currentTarget as HTMLElement);
     this.value.update((v) => {
       switch (group.id) {
         case 'target':
@@ -140,6 +141,18 @@ export class ActionOptions {
         }
       }
     });
+  }
+
+  private pop(el: HTMLElement) {
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    el.animate(
+      [
+        { transform: 'scale(1)' },
+        { transform: 'scale(1.05)', offset: 0.4 },
+        { transform: 'scale(1)' },
+      ],
+      { duration: 180, easing: 'ease-out' },
+    );
   }
 
   protected asTarget(option: string): ActionTarget {
