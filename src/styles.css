@@ -8,3 +8,9 @@
     label-text-size: 1.5rem,
   ));
 }
+
+:root {
+  --control-h: clamp(3rem, 2rem + 4cqmin, 4rem);
+  --control-font: clamp(1rem, 0.75rem + 2cqmin, 1.25rem);
+  --control-gap: max(0.375rem, 2cqmin);
+}

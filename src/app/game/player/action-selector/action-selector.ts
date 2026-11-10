@@ -115,11 +115,11 @@ const snapDown = (n: number, step: number) => Math.max(0, (Math.ceil(n / step) -
       </span>
     </div>
 
-    <!-- Actions: full width across the bottom, sized from the tile -->
-    <div class="flex shrink-0 gap-[2cqmin] p-[2cqmin]">
+    <!-- Actions: full width across the bottom, sized from shared tokens (see styles.css) -->
+    <div class="flex shrink-0 gap-[var(--control-gap)] p-[var(--control-gap)]">
       <button
         type="button"
-        class="aspect-square h-[clamp(2.5rem,11cqmin,3.5rem)] shrink-0 touch-manipulation rounded-full border-2 border-neutral-500 bg-neutral-800 text-white transition active:scale-95 active:bg-neutral-700 [font-size:clamp(0.875rem,5cqmin,1.25rem)] [-webkit-tap-highlight-color:transparent]"
+        class="aspect-square h-[var(--control-h)] shrink-0 touch-manipulation rounded-full border-2 border-neutral-500 bg-neutral-800 text-white transition active:scale-[0.97] active:bg-neutral-700 [font-size:var(--control-font)] [-webkit-tap-highlight-color:transparent]"
         aria-label="Cancel"
         (click)="cancel.emit()"
       >
@@ -127,7 +127,7 @@ const snapDown = (n: number, step: number) => Math.max(0, (Math.ceil(n / step) -
       </button>
       <button
         type="button"
-        class="h-[clamp(2.5rem,11cqmin,3.5rem)] flex-1 touch-manipulation rounded-full border-2 border-white bg-white font-semibold text-black transition active:scale-95 active:bg-neutral-200 [font-size:clamp(0.875rem,5cqmin,1.25rem)] [-webkit-tap-highlight-color:transparent]"
+        class="h-[var(--control-h)] flex-1 touch-manipulation rounded-full border-2 border-white bg-white font-semibold text-black transition active:scale-[0.97] active:bg-neutral-200 [font-size:var(--control-font)] [-webkit-tap-highlight-color:transparent]"
         (click)="onApply()"
       >
         Apply

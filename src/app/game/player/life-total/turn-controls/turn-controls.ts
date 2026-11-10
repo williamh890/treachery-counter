@@ -18,14 +18,14 @@ const SHOW_AFTER_MS = 200;
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'pointer-events-none absolute inset-0' },
   template: `
-    <!-- Undo + pass turn + options: sized from the tile, like the action selector -->
+    <!-- Undo + pass turn + options: sized from shared tokens (see styles.css) -->
     <div
-      class="pointer-events-auto absolute inset-x-0 bottom-0 flex items-center gap-[2cqmin] p-[2cqmin]"
+      class="pointer-events-auto absolute inset-x-0 bottom-0 flex items-center gap-[var(--control-gap)] p-[var(--control-gap)]"
     >
       <!-- Undo: tap = undo, hold = undo turn -->
       <button
         type="button"
-        class="aspect-square h-[clamp(2.5rem,11cqmin,3.5rem)] shrink-0 touch-manipulation select-none rounded-full border-2 border-neutral-500 bg-neutral-800 text-white transition active:bg-neutral-700 disabled:opacity-30 disabled:active:bg-neutral-800 [font-size:clamp(0.875rem,5cqmin,1.25rem)] [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]"
+        class="aspect-square h-[var(--control-h)] shrink-0 touch-manipulation select-none rounded-full border-2 border-neutral-500 bg-neutral-800 text-white transition active:bg-neutral-700 disabled:opacity-30 disabled:active:bg-neutral-800 [font-size:var(--control-font)] [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]"
         aria-label="Undo last action. Hold to undo the whole turn."
         [disabled]="!canUndo()"
         (pointerdown)="startPress($event)"
@@ -41,7 +41,7 @@ const SHOW_AFTER_MS = 200;
       <!-- Pass: doubles as the hold-progress bar -->
       <button
         type="button"
-        class="relative h-[clamp(2.5rem,11cqmin,3.5rem)] flex-1 touch-manipulation overflow-hidden rounded-full border-2 border-indigo-300 bg-indigo-500 font-semibold text-white transition active:bg-indigo-400 [font-size:clamp(0.875rem,5cqmin,1.25rem)] [-webkit-tap-highlight-color:transparent]"
+        class="relative h-[var(--control-h)] flex-1 touch-manipulation overflow-hidden rounded-full border-2 border-indigo-300 bg-indigo-500 font-semibold text-white transition active:bg-indigo-400 [font-size:var(--control-font)] [-webkit-tap-highlight-color:transparent]"
         (click)="passTurn()"
       >
         @if (showHold()) {
@@ -63,7 +63,7 @@ const SHOW_AFTER_MS = 200;
       <!-- Options -->
       <button
         type="button"
-        class="aspect-square h-[clamp(2.5rem,11cqmin,3.5rem)] shrink-0 touch-manipulation rounded-full border-2 border-neutral-500 bg-neutral-800 text-white transition active:bg-neutral-700 [font-size:clamp(0.875rem,5cqmin,1.25rem)] [-webkit-tap-highlight-color:transparent]"
+        class="aspect-square h-[var(--control-h)] shrink-0 touch-manipulation rounded-full border-2 border-neutral-500 bg-neutral-800 text-white transition active:bg-neutral-700 [font-size:var(--control-font)] [-webkit-tap-highlight-color:transparent]"
         aria-label="Game options"
         (click)="openOptions()"
       >
