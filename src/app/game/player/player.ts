@@ -9,13 +9,18 @@ import { optionColor } from './action-selector/action-options/action-options.con
 
 @Component({
   selector: 'app-player',
-  host: { class: 'relative block h-full w-full overflow-hidden bg-neutral-800 text-white' },
+  host: {
+    class:
+      'relative block h-full w-full select-none overflow-hidden bg-neutral-800 text-white [-webkit-touch-callout:none]',
+    '(contextmenu)': '$event.preventDefault()',
+  },
   template: `
     @if (commanderUrl(); as url) {
       <img
-        class="absolute inset-0 h-full w-full object-cover object-top"
+        class="pointer-events-none absolute inset-0 h-full w-full select-none object-cover object-top [-webkit-touch-callout:none]"
         [src]="url"
         alt=""
+        draggable="false"
         aria-hidden="true"
       />
     }
