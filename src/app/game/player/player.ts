@@ -84,7 +84,7 @@ type ArtKind = 'commander' | 'partner';
       <!-- Corner caps: solid triangles that fill each corner of the frame -->
       @for (cap of caps; track cap.pos) {
         <span
-          class="absolute size-[3cqmin] bg-[linear-gradient(135deg,color-mix(in_srgb,var(--glow)_45%,grey),var(--glow)_70%)]"
+          class="absolute size-[3cqmin] bg-[linear-gradient(135deg,color-mix(in_srgb,var(--glow)_45%,white),var(--glow)_70%)]"
           [class]="cap.pos"
           [style.clip-path]="cap.clip"
         ></span>
