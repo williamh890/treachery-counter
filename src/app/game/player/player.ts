@@ -74,19 +74,59 @@ type ArtKind = 'commander' | 'partner';
       }
     </div>
 
-    <!-- Target glow, colored by the selected action type. Always mounted so it can fade out. -->
+    <!-- Targeting frame in the action's color. Always mounted so it can fade out. -->
     <div
-      class="target-glow pointer-events-none absolute inset-0 z-20 transition-opacity duration-300 ease-out motion-reduce:transition-none"
+      class="target-frame pointer-events-none absolute z-20 transition-opacity duration-300 ease-out motion-reduce:transition-none"
       [class]="outlineColor() ? 'opacity-100' : 'opacity-0'"
       [style.--glow]="outlineColor() ?? lastGlowColor()"
       aria-hidden="true"
-    ></div>
+    >
+      <!-- Corner caps: solid triangles that fill each corner of the frame -->
+      @for (cap of caps; track cap.pos) {
+        <span
+          class="absolute size-[3cqmin] bg-[linear-gradient(135deg,color-mix(in_srgb,var(--glow)_45%,grey),var(--glow)_70%)]"
+          [class]="cap.pos"
+          [style.clip-path]="cap.clip"
+        ></span>
+      }
+    </div>
   `,
   styles: `
-    .target-glow {
-      box-shadow:
-        inset 0 0 16px 3px color-mix(in srgb, var(--glow) 90%, transparent),
-        inset 0 0 32px 5px color-mix(in srgb, var(--glow) 50%, transparent);
+    .target-frame {
+      inset: 0;
+      /* Faint inner haze, kept small so it stays near the edge */
+      box-shadow: inset 0 0 3cqmin color-mix(in srgb, var(--glow) 30%, transparent);
+    }
+
+    /* Metallic border: a gradient that runs light, color, light, color across the frame */
+    .target-frame::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      padding: 3px;
+      background: linear-gradient(
+        135deg,
+        color-mix(in srgb, var(--glow) 45%, white),
+        var(--glow) 30%,
+        color-mix(in srgb, var(--glow) 45%, white) 50%,
+        var(--glow) 70%,
+        color-mix(in srgb, var(--glow) 45%, white)
+      );
+      -webkit-mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor;
+      mask:
+        linear-gradient(#000 0 0) content-box exclude,
+        linear-gradient(#000 0 0);
+    }
+
+    /* Fine inner line, set in from the border */
+    .target-frame::after {
+      content: '';
+      position: absolute;
+      inset: 6px;
+      border: 1px solid color-mix(in srgb, var(--glow) 50%, transparent);
     }
   `,
   imports: [ActionSelector, LifeTotal, Elimination],
@@ -103,7 +143,13 @@ export class Player {
 
   /** Last color the glow had, so it can keep it while fading out. */
   protected lastGlowColor = signal<string | null>(null);
-
+  /** Triangular corner fills, one per corner. */
+  protected readonly caps = [
+    { pos: 'left-0 top-0', clip: 'polygon(0 0, 100% 0, 0 100%)' },
+    { pos: 'right-0 top-0', clip: 'polygon(0 0, 100% 0, 100% 100%)' },
+    { pos: 'bottom-0 right-0', clip: 'polygon(100% 0, 100% 100%, 0 100%)' },
+    { pos: 'bottom-0 left-0', clip: 'polygon(0 0, 100% 100%, 0 100%)' },
+  ];
   constructor() {
     effect(() => {
       const color = this.outlineColor();
