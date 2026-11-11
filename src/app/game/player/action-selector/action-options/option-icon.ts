@@ -81,14 +81,20 @@ import { Component, input } from '@angular/core';
           <path d="M12 2.5s6.5 6.6 6.5 11.7a6.5 6.5 0 0 1-13 0C5.5 9.1 12 2.5 12 2.5z" />
         }
 
-        <!-- Tags -->
+        <!-- Tags: crown with a letter cut out of it -->
         @case ('Commander') {
-          <!-- Crown -->
           <path
-            stroke="currentColor"
-            stroke-width="1.2"
-            stroke-linejoin="round"
-            d="M3 8l4.5 4L12 5l4.5 7L21 8l-1.5 10h-15z"
+            fill-rule="evenodd"
+            d="M2.5 7.4l5 4L12 4.3l4.5 7.1 5-4-1.9 11.2H4.4z
+       M14.2 11.9A2.9 2.9 0 1 0 14.2 15.6L12.9 14.5A1.2 1.2 0 1 1 12.9 13z"
+          />
+        }
+        @case ('Partner') {
+          <path
+            fill-rule="evenodd"
+            d="M2.5 7.4l5 4L12 4.3l4.5 7.1 5-4-1.9 11.2H4.4z
+       M9.4 10.9H12.2a2.2 2.2 0 0 1 0 4.4H11.2V16.6H9.4z
+       M11.2 12.4H12.2a.7.7 0 0 1 0 1.4H11.2z"
           />
         }
       }

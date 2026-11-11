@@ -7,6 +7,7 @@ import {
   effect,
   ElementRef,
   inject,
+  input,
   model,
   output,
   untracked,
@@ -40,7 +41,7 @@ const snapDown = (n: number, step: number) => Math.max(0, (Math.ceil(n / step) -
   imports: [ActionOptions],
   host: { class: 'relative flex h-full w-full select-none flex-col' },
   template: `
-    <app-action-options class="shrink-0" [value]="options()" (valueChange)="setOptions($event)" />
+    <app-action-options class="shrink-0" [value]="options()" [partner]="hasPartner()" (valueChange)="setOptions($event)" />
 
     <!-- Counter area: left half minus, right half plus. Its own size container, so the
          count and glyphs scale to the space they actually have. -->
@@ -140,6 +141,14 @@ export class ActionSelector {
   private host = inject<ElementRef<HTMLElement>>(ElementRef);
   private countEl = viewChild<ElementRef<HTMLElement>>('countEl');
   private reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  seat = input.required<number>();
+
+  hasPartner = computed(() => {
+    const player = this.gameStore.playerAt(this.seat());
+
+    return Boolean(player?.deck?.partner);
+  });
 
   /** Current count. Two-way bindable, e.g. [(count)]="..."; never goes below 0. */
   count = model(0);

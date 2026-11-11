@@ -6,6 +6,8 @@ import { OptionIcon } from '../../action-selector/action-options/option-icon';
 const INFECT_LETHAL = 10;
 const COMMANDER_LETHAL = 21;
 
+type CommanderKind = 'commander' | 'partner';
+
 @Component({
   selector: 'app-player-counters',
   host: { class: 'flex flex-wrap items-start justify-start gap-[1.5cqmin]' },
@@ -29,7 +31,7 @@ const COMMANDER_LETHAL = 21;
       </span>
     }
 
-    @for (hit of commanderHits(); track hit.seat) {
+    @for (hit of hits(); track hit.kind + hit.seat) {
       <span
         class="relative flex h-[11cqmin] min-w-[14cqmin] items-center justify-center overflow-hidden rounded-md bg-neutral-700 px-[2cqmin] text-[7cqmin] font-bold tabular-nums"
         [class.ring-2]="hit.lethal"
@@ -60,6 +62,27 @@ export class PlayerCounters {
 
   seat = input.required<number>();
 
+  private hitsFor(kind: CommanderKind) {
+    const dmgKey = kind === 'commander' ? 'commanderDmg' : 'partnerDmg';
+    return Object.entries(this.player()?.[dmgKey] ?? {})
+      .map(([key, dmg]) => {
+        const seat = Number(key);
+        const source = this.gameStore.playerAt(seat);
+        return {
+          seat,
+          kind,
+          dmg,
+          name: source?.name ?? `Seat ${seat + 1}`,
+          url:
+            (kind === 'commander' ? source?.deck?.commander : source?.deck?.partner)?.url ?? null,
+          lethal: dmg >= COMMANDER_LETHAL,
+        };
+      })
+      .filter((hit) => hit.dmg > 0);
+  }
+
+  hits = computed(() => [...this.hitsFor('commander'), ...this.hitsFor('partner')]);
+
   private player = computed(() => this.gameStore.playerAt(this.seat()));
 
   infect = computed(() => this.player()?.infect ?? 0);
@@ -76,6 +99,22 @@ export class PlayerCounters {
           dmg,
           name: source?.name ?? `Seat ${seat + 1}`,
           url: source?.deck?.commander.url ?? null,
+          lethal: dmg >= COMMANDER_LETHAL,
+        };
+      })
+      .filter((hit) => hit.dmg > 0),
+  );
+
+  partnerHits = computed(() =>
+    Object.entries(this.player()?.partnerDmg ?? {})
+      .map(([key, dmg]) => {
+        const seat = Number(key);
+        const source = this.gameStore.playerAt(seat);
+        return {
+          seat,
+          dmg,
+          name: source?.name ?? `Seat ${seat + 1}`,
+          url: source?.deck?.partner?.url ?? null,
           lethal: dmg >= COMMANDER_LETHAL,
         };
       })

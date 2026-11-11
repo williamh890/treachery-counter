@@ -28,6 +28,7 @@ export type Player = {
   life: number;
   infect: number;
   commanderDmg: Record<number, number>;
+  partnerDmg: Record<number, number>;
   isGuest: boolean;
   deck: Deck | null;
 };
@@ -239,15 +240,17 @@ export const GameStore = signalStore(
     startGameSetup() {
       store._clearHistory();
       store._actionCount.set(0);
+      const zeroDmg = (n: number) =>
+        Object.fromEntries(Array.from({ length: n }, (_, seat) => [seat, 0]));
+      // startGameSetup:
       const players = Array.from({ length: store.playerCount() }, (_, i): Player => ({
         id: i + 1,
         name: `Player ${i + 1}`,
         status: 'alive',
         life: store.startingLife(),
         infect: 0,
-        commanderDmg: Object.fromEntries(
-          Array.from({ length: store.playerCount() }, (_, seat) => [seat, 0] as const),
-        ),
+        commanderDmg: zeroDmg(store.playerCount()),
+        partnerDmg: zeroDmg(store.playerCount()),
         deck: null,
         isGuest: false,
       }));
@@ -371,7 +374,10 @@ export const GameStore = signalStore(
       profiles.watchDecks(store.deckUserIds);
 
       const isLethal = (p: Player) =>
-        p.life <= 0 || p.infect >= 10 || Object.values(p.commanderDmg).some((d) => d >= 21);
+        p.life <= 0 ||
+        p.infect >= 10 ||
+        Object.values(p.commanderDmg).some((d) => d >= 21) ||
+        Object.values(p.partnerDmg).some((d) => d >= 21);
 
       const nextStatus = (p: Player): PlayerStatus => {
         const lethal = isLethal(p);
@@ -482,6 +488,7 @@ function applyActionTo(
     let life = player.life;
     let infect = player.infect;
     const commanderDmg = { ...player.commanderDmg };
+    const partnerDmg = { ...player.partnerDmg };
 
     if (hit) {
       switch (options.type) {
@@ -496,6 +503,10 @@ function applyActionTo(
           if (options.tags.includes('Commander')) {
             commanderDmg[sourceSeat] = (commanderDmg[sourceSeat] ?? 0) + count;
           }
+
+          if (options.tags.includes('Partner')) {
+            partnerDmg[sourceSeat] = (partnerDmg[sourceSeat] ?? 0) + count;
+          }
       }
     }
 
@@ -503,6 +514,6 @@ function applyActionTo(
       life += sourceGain;
     }
 
-    return { ...player, life, infect, commanderDmg };
+    return { ...player, life, infect, commanderDmg, partnerDmg };
   });
 }
