@@ -1,9 +1,7 @@
 // src/app/features/game/player/action-selector/action-options/action-options.ts
-import { NgTemplateOutlet } from '@angular/common';
 import {
   AnimationCallbackEvent,
   Component,
-  DestroyRef,
   ElementRef,
   Injector,
   afterNextRender,
@@ -27,7 +25,6 @@ import {
   availableTags,
   availableTypes,
   normalizeOptions,
-  tagOptions,
 } from './action-options.config';
 import { OptionIcon } from './option-icon';
 
@@ -37,15 +34,20 @@ interface OptionGroup {
   label: string;
   /** single: pick exactly one (radio). multi: any number, including none (toggle). */
   mode: 'single' | 'multi';
-  options: readonly string[];
 }
 
-/** A run of groups. `joined` draws them inside one shared outline. */
-interface Segment {
-  groups: readonly OptionGroup[];
-  joined: boolean;
-  /** Joined clusters only: tags are tucked away because the type can't take them. */
-  collapsed: boolean;
+/**
+ * One thing in a row. The key is stable across layouts, so Angular keeps the same
+ * element when a pill moves, and the slide animation has something to follow.
+ */
+type Item =
+  | { key: string; kind: 'divider' }
+  | { key: string; kind: 'pill'; group: OptionGroup; option: string };
+
+interface Row {
+  id: 'types' | 'targets';
+  label: string;
+  items: readonly Item[];
 }
 
 interface Point {
@@ -53,142 +55,25 @@ interface Point {
   y: number;
 }
 
-/** How long pills take to slide to their new spot. */
+/** How long pills (and the options height) take to settle into the new layout. */
 const MOVE_MS = 260;
-/** Matches the tag collapse transition (duration-300) plus a little slack. */
-const SETTLE_MS = 320;
+const EASE = 'cubic-bezier(0.2, 0, 0, 1)';
 
-const TARGET_GROUP: OptionGroup = {
-  id: 'target',
-  label: 'Targets',
-  mode: 'single',
-  options: TARGETS,
-};
+const TYPE_GROUP: OptionGroup = { id: 'type', label: 'Type', mode: 'single' };
+const TAG_GROUP: OptionGroup = { id: 'tags', label: 'Tag', mode: 'multi' };
+const TARGET_GROUP: OptionGroup = { id: 'target', label: 'Targets', mode: 'single' };
 
-const typeGroup = (options: readonly ActionType[]): OptionGroup => ({
-  id: 'type',
-  label: 'Type',
-  mode: 'single',
-  options,
+const pill = (group: OptionGroup, option: string): Item => ({
+  key: `${group.id}:${option}`,
+  kind: 'pill',
+  group,
+  option,
 });
 
 @Component({
   selector: 'app-action-options',
   host: { class: 'block' },
-  imports: [OptionIcon, NgTemplateOutlet],
-  template: `
-    <!-- relative: leaving pills are positioned against this while they fade out -->
-    <div
-      #container
-      class="relative flex flex-col items-center gap-[3cqmin] px-[3cqmin] py-[2cqmin]"
-    >
-      @for (row of rows(); track $index) {
-        <div class="flex flex-wrap items-center justify-center gap-[2.5cqmin]">
-          @for (segment of row; track $index) {
-            <!-- Joined: damage types and tags share one outline, so the tags read as
-                 modifiers of the damage. Otherwise display: contents lets pills wrap as one flow. -->
-            <div
-              [class]="
-                segment.joined
-                  ? 'flex items-center gap-[2cqmin] rounded-xl bg-white/5 p-[1.2cqmin] ring-1 ring-white/25'
-                  : 'contents'
-              "
-            >
-              @for (group of segment.groups; track $index) {
-                @if (group.id === 'tags') {
-                  <!-- Collapsing wrapper: 1fr <-> 0fr animates the width, and the negative margin
-       swallows the flex gap, so Lifelink ends up flush with the cluster's edge.
-       The transition timings belong to the state being entered, so opening and
-       closing can differ: opening fades in after the space has started to open,
-       closing fades out first. -->
-                  <div
-                    class="grid transition-[grid-template-columns,margin-left,opacity] duration-300 ease-out motion-reduce:transition-none"
-                    [class]="
-                      segment.collapsed
-                        ? 'ml-[-2cqmin] grid-cols-[0fr] opacity-0 [transition-duration:300ms,300ms,120ms]'
-                        : 'ml-0 grid-cols-[1fr] opacity-100 [transition-delay:0ms,0ms,100ms] [transition-duration:300ms,300ms,200ms]'
-                    "
-                    [attr.inert]="segment.collapsed ? '' : null"
-                  >
-                    <!-- Clip: overflow-hidden crops the tags while the width is closed. The padding and
-         matching negative margins leave room inside the clip for the glow and ring. -->
-                    <div
-                      class="-mx-[2cqmin] -my-[2cqmin] min-w-0 overflow-hidden px-[2cqmin] py-[2cqmin]"
-                    >
-                      <!-- Motion: the tags slide out from behind Lifelink instead of scaling up -->
-                      <div
-                        class="flex items-center gap-[2cqmin] transition-transform duration-300 ease-out motion-reduce:transition-none"
-                        [class]="segment.collapsed ? '-translate-x-[6cqmin]' : 'translate-x-0'"
-                      >
-                        <span
-                          class="h-[8cqmin] w-px shrink-0 bg-white/30"
-                          aria-hidden="true"
-                        ></span>
-                        <div class="contents" role="group" [attr.aria-label]="group.label">
-                          @for (option of group.options; track option) {
-                            <ng-container
-                              *ngTemplateOutlet="pill; context: { group: group, option: option }"
-                            />
-                          }
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                } @else {
-                  <div
-                    class="contents"
-                    [attr.role]="group.mode === 'single' ? 'radiogroup' : 'group'"
-                    [attr.aria-label]="group.label"
-                  >
-                    @for (option of group.options; track option) {
-                      <ng-container
-                        *ngTemplateOutlet="pill; context: { group: group, option: option }"
-                      />
-                    }
-                  </div>
-                }
-              }
-            </div>
-          }
-        </div>
-      }
-    </div>
-
-    <ng-template #pill let-group="group" let-option="option">
-      @let selected = isSelected(group, option);
-      <!-- data-key: identity for the slide animation. Tags are left out; they have the
-           collapse transition instead. -->
-      <button
-        type="button"
-        class="flex touch-manipulation items-center justify-center gap-2 border-2 transition active:scale-95 [-webkit-tap-highlight-color:transparent]"
-        [class]="pillClass(group, option, selected)"
-        [style.--fill]="colors[option]?.fill ?? null"
-        [style.--ink]="colors[option]?.ink ?? null"
-        [style.--edge]="colors[option]?.edge ?? null"
-        [attr.data-key]="group.id === 'tags' ? null : group.id + ':' + option"
-        [attr.role]="group.mode === 'single' ? 'radio' : null"
-        [attr.aria-checked]="group.mode === 'single' ? selected : null"
-        [attr.aria-pressed]="group.mode === 'multi' ? selected : null"
-        [attr.aria-label]="group.id === 'tags' ? option : null"
-        [animate.enter]="enterClass(group, option)"
-        (animate.leave)="leave($event)"
-        (click)="choose(group, option, $event)"
-      >
-        <!-- Icon slot: same size in every state, so nothing shifts.
-             Tags are icon-only, so their icon fills the button. -->
-        <span
-          class="shrink-0"
-          [class]="group.id === 'tags' ? 'size-full scale-75' : 'size-[1.4em]'"
-          aria-hidden="true"
-        >
-          <app-option-icon [name]="option" />
-        </span>
-        @if (group.id !== 'tags') {
-          {{ option }}
-        }
-      </button>
-    </ng-template>
-  `,
+  imports: [OptionIcon],
   styles: `
     @keyframes pill-in {
       from {
@@ -205,6 +90,67 @@ const typeGroup = (options: readonly ActionType[]): OptionGroup => ({
       }
     }
   `,
+  template: `
+    <!-- relative: pills measure their position against this, and leaving pills are pinned to it -->
+    <div
+      #container
+      class="relative flex flex-col items-center gap-[3cqmin] px-[3cqmin] py-[2cqmin]"
+    >
+      @for (row of rows(); track row.id) {
+        <div
+          class="flex flex-wrap items-center justify-center gap-[2.5cqmin]"
+          role="radiogroup"
+          [attr.aria-label]="row.label"
+        >
+          @for (item of row.items; track item.key) {
+            @if (item.kind === 'pill') {
+              @let group = item.group;
+              @let option = item.option;
+              @let selected = isSelected(group, option);
+              <button
+                type="button"
+                class="flex touch-manipulation items-center justify-center gap-2 border-2 transition active:scale-95 [-webkit-tap-highlight-color:transparent]"
+                [class]="pillClass(group, option, selected)"
+                [style.--fill]="colors[option]?.fill ?? null"
+                [style.--ink]="colors[option]?.ink ?? null"
+                [style.--edge]="colors[option]?.edge ?? null"
+                [attr.data-key]="item.key"
+                [attr.role]="group.mode === 'single' ? 'radio' : null"
+                [attr.aria-checked]="group.mode === 'single' ? selected : null"
+                [attr.aria-pressed]="group.mode === 'multi' ? selected : null"
+                [attr.aria-label]="group.id === 'tags' ? option : null"
+                [animate.enter]="enterClass(item)"
+                (animate.leave)="leave($event)"
+                (click)="choose(group, option, $event)"
+              >
+                <!-- Icon slot: same size in every state, so nothing shifts.
+                     Tags are icon-only, so their icon fills the button. -->
+                <span
+                  class="shrink-0"
+                  [class]="group.id === 'tags' ? 'size-full scale-75' : 'size-[1.4em]'"
+                  aria-hidden="true"
+                >
+                  <app-option-icon [name]="option" />
+                </span>
+                @if (group.id !== 'tags') {
+                  {{ option }}
+                }
+              </button>
+            } @else {
+              <!-- Divider between the damage types and their tags -->
+              <span
+                class="h-[8cqmin] w-px shrink-0 bg-white/30"
+                data-key="divider"
+                [animate.enter]="enterClass(item)"
+                (animate.leave)="leave($event)"
+                aria-hidden="true"
+              ></span>
+            }
+          }
+        </div>
+      }
+    </div>
+  `,
 })
 export class ActionOptions {
   /** Current choices. Two-way bindable: [(value)]="options". */
@@ -213,115 +159,71 @@ export class ActionOptions {
   partner = input.required<boolean>();
 
   protected readonly colors = OPTION_COLORS;
-  /** Only genuinely new pills grow in; pills that merely moved slide via flip(). */
-  protected enterClass(group: OptionGroup, option: string) {
-    if (!this.ready || this.reducedMotion || group.id === 'tags') return '';
-    return this.positions.has(`${group.id}:${option}`) ? '' : 'pill-in';
-  }
 
   private injector = inject(Injector);
+  private host = inject<ElementRef<HTMLElement>>(ElementRef);
   private container = viewChild.required<ElementRef<HTMLElement>>('container');
   private reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   /** False until the first layout is measured, so the initial render doesn't animate. */
   private ready = false;
-  /** Where each pill's center was after the last layout, by data-key. */
+  /** Where each pill's center was after the last layout, by key. */
   private positions = new Map<string, Point>();
   private width = 0;
-  /** Collapsed state of the tag cluster last time; null when there's no cluster. */
-  private lastCollapsed: boolean | null = null;
-  /** True while the tag collapse transition runs; it moves pills by itself. */
-  private settling = false;
-  private settleTimer: ReturnType<typeof setTimeout> | undefined;
+  private height = 0;
 
   /**
-   * Type row on top, targets underneath. The types offered depend on the picked target.
-   * For target Player, the damage types and the tags form one joined cluster; the tags
-   * stay mounted and collapse when the current type can't take them.
+   * Type row on top, targets underneath. The tags (when the type can take them) follow the
+   * damage-like types behind a divider, so they read as modifiers of the damage.
    */
-  protected readonly rows = computed<readonly (readonly Segment[])[]>(() => {
+  protected readonly rows = computed<readonly Row[]>(() => {
     const { target, type, tags: selectedTags } = this.value();
 
     const types = availableTypes(target, selectedTags);
-    const tags = tagOptions(target, this.partner());
-    const targetRow: Segment[] = [{ groups: [TARGET_GROUP], joined: false, collapsed: false }];
+    const tags = availableTags(target, type, this.partner());
 
-    // Opponents / All have no tags, so no cluster
-    if (!tags.length) {
-      return [[{ groups: [typeGroup(types)], joined: false, collapsed: false }], targetRow];
+    const items: Item[] = types.map((t) => pill(TYPE_GROUP, t));
+
+    if (tags.length) {
+      let lastDamage = -1;
+      types.forEach((t, i) => {
+        if (COMMANDER_TYPES.includes(t)) lastDamage = i;
+      });
+      items.splice(
+        lastDamage + 1,
+        0,
+        { key: 'divider', kind: 'divider' },
+        ...tags.map((t) => pill(TAG_GROUP, t)),
+      );
     }
 
-    const tagGroup: OptionGroup = { id: 'tags', label: 'Tag', mode: 'multi', options: tags };
-    const damage = types.filter((t) => COMMANDER_TYPES.includes(t));
-    const other = types.filter((t) => !COMMANDER_TYPES.includes(t));
-
-    const typeRow: Segment[] = [
-      {
-        groups: [typeGroup(damage), tagGroup],
-        joined: true,
-        collapsed: availableTags(target, type, this.partner()).length === 0,
-      },
+    return [
+      { id: 'types', label: 'Type', items },
+      { id: 'targets', label: 'Targets', items: TARGETS.map((t) => pill(TARGET_GROUP, t)) },
     ];
-    if (other.length) {
-      typeRow.push({ groups: [typeGroup(other)], joined: false, collapsed: false });
-    }
-
-    return [typeRow, targetRow];
   });
 
-  /** Keys of every animated pill in the current layout. */
-  private readonly currentKeys = computed(
-    () =>
-      new Set(
-        this.rows()
-          .flat()
-          .flatMap((s) => s.groups)
-          .filter((g) => g.id !== 'tags')
-          .flatMap((g) => g.options.map((o) => `${g.id}:${o}`)),
-      ),
-  );
-
   constructor() {
-    // After every layout change, once the DOM has updated, slide pills to their new spots
+    // After every layout change, once the DOM has updated, slide things to their new spots
     effect(() => {
-      const cluster = this.rows()
-        .flat()
-        .find((s) => s.joined);
-      const collapsed = cluster ? cluster.collapsed : null;
-
-      untracked(() => {
-        // The tag collapse moves its neighbours with a CSS transition; don't fight it
-        if (collapsed !== null && this.lastCollapsed !== null && collapsed !== this.lastCollapsed) {
-          this.settle();
-        }
-        this.lastCollapsed = collapsed;
-        afterNextRender(() => this.flip(), { injector: this.injector });
-      });
+      this.rows();
+      untracked(() => afterNextRender(() => this.flip(), { injector: this.injector }));
     });
-
-    inject(DestroyRef).onDestroy(() => clearTimeout(this.settleTimer));
-  }
-
-  private settle() {
-    this.settling = true;
-    clearTimeout(this.settleTimer);
-    this.settleTimer = setTimeout(() => {
-      this.settling = false;
-      this.flip(false); // just record where everything ended up
-    }, SETTLE_MS);
   }
 
   /**
    * FLIP: compare each pill's layout position with where it was, and play the difference
    * backwards. Uses offsetLeft/offsetTop (layout space, ignores transforms), so it works
    * on rotated tiles, and the `translate` property, so it doesn't clash with scale/pop.
+   * Also eases the options' height, so the area below (and the big count) resizes smoothly
+   * when the pills wrap onto a different number of lines.
    */
-  private flip(animate = true) {
+  private flip() {
     const root = this.container().nativeElement;
     const width = root.offsetWidth;
+    const height = root.offsetHeight;
     // A resized tile moves everything; snap instead of sliding
-    const canMove =
-      animate && this.ready && !this.settling && !this.reducedMotion && width === this.width;
+    const canMove = this.ready && !this.reducedMotion && width === this.width;
     const next = new Map<string, Point>();
 
     for (const el of root.querySelectorAll<HTMLElement>('[data-key]')) {
@@ -340,32 +242,34 @@ export class ActionOptions {
 
       el.animate([{ translate: `${dx}px ${dy}px` }, { translate: '0 0' }], {
         duration: MOVE_MS,
-        easing: 'cubic-bezier(0.2, 0, 0, 1)',
+        easing: EASE,
       });
+    }
+
+    if (canMove && Math.abs(height - this.height) > 1) {
+      // overflow: clip only while animating, so a growing area is revealed, not overlapped
+      this.host.nativeElement.animate(
+        [
+          { height: `${this.height}px`, overflow: 'clip' },
+          { height: `${height}px`, overflow: 'clip' },
+        ],
+        { duration: MOVE_MS, easing: EASE },
+      );
     }
 
     this.positions = next;
     this.width = width;
+    this.height = height;
     this.ready = true;
   }
 
-  /** New pills grow and fade in, a beat after the others start sliding. */
-  protected enter(e: AnimationCallbackEvent) {
-    const el = e.target as HTMLElement;
-    const key = el.dataset['key'];
-
-    // A pill that merely changed groups slides in from its old spot instead (see flip)
-    const isNew = !key || !this.positions.has(key);
-    if (this.ready && !this.reducedMotion && isNew) {
-      // One keyframe: the end state is whatever the pill's classes say (e.g. selected size)
-      el.animate([{ opacity: 0, scale: '0.6' }], {
-        duration: 200,
-        delay: 80,
-        easing: 'ease-out',
-        fill: 'backwards',
-      });
-    }
-    e.animationComplete();
+  /**
+   * Only genuinely new pills grow in; ones that merely moved slide via flip(). Done as a
+   * class so the hidden starting state is there from the element's first frame.
+   */
+  protected enterClass(item: Item) {
+    if (!this.ready || this.reducedMotion) return '';
+    return this.positions.has(item.key) ? '' : 'pill-in';
   }
 
   /**
@@ -374,10 +278,8 @@ export class ActionOptions {
    */
   protected leave(e: AnimationCallbackEvent) {
     const el = e.target as HTMLElement;
-    const key = el.dataset['key'];
 
-    // Tags have their own collapse; a pill that reappears under the same key slides instead
-    if (!key || this.reducedMotion || this.currentKeys().has(key)) {
+    if (this.reducedMotion) {
       e.animationComplete();
       return;
     }
