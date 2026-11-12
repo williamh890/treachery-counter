@@ -1,8 +1,10 @@
 // src/app/features/game/player/action-selector/action-options/action-options.config.ts
+import { icons } from './action-options.icons';
 
+export type ActionTarget = 'Player' | 'Opponents' | 'All';
 export type ActionType = 'Damage' | 'Healing' | 'Lifelink' | 'Infect' | 'Drain' | 'Extort';
-export type ActionTarget = 'Player' | 'All' | 'Opponents';
 export type ActionTag = 'Commander' | 'Partner';
+export type ButtonId = ActionTarget | ActionType | ActionTag;
 
 /** The options chosen in the selector. */
 export interface ActionOptionsValue {
@@ -23,89 +25,172 @@ export const DEFAULT_ACTION_OPTIONS: ActionOptionsValue = {
   tags: [],
 };
 
-// ---------- rules: what is available depends on the target (and type) ----------
-
-export const TARGETS: readonly ActionTarget[] = ['Player', 'Opponents', 'All'];
-
-/** Types that deal damage, so the only ones the commander tags can combine with. */
-export const COMMANDER_TYPES: readonly ActionType[] = ['Damage', 'Lifelink'];
-
-/** Tags that mark commander damage. Mutually exclusive: at most one at a time. */
-export const COMMANDER_TAGS: readonly ActionTag[] = ['Commander', 'Partner'];
-
-export const TYPE_OPTIONS_BY_TARGET: Record<ActionTarget, readonly ActionType[]> = {
-  // Damage-like types come first so they sit next to the tags
-  Player: ['Damage', 'Lifelink', 'Healing', 'Infect'],
-  All: ['Damage', 'Healing', 'Infect'],
-  Opponents: ['Damage', 'Healing', 'Drain', 'Extort', 'Infect'],
-};
-
-/** Drops anything that's no longer valid after a change (e.g. switching target). */
-export function normalizeOptions(value: ActionOptionsValue, partner: boolean): ActionOptionsValue {
-  const type = TYPE_OPTIONS_BY_TARGET[value.target].includes(value.type) ? value.type : 'Damage';
-  const allowedTags = availableTags(value.target, type, partner);
-  return {
-    target: value.target,
-    type,
-    // At most one tag: Commander and Partner are exclusive
-    tags: value.tags.filter((t) => allowedTags.includes(t)).slice(0, 1),
-  };
-}
-
-// ---------- colors ----------
+// =====================================================================================
+// 1. LOOKS: what each button looks like
+// =====================================================================================
 
 export interface OptionColor {
-  /** Background of the selected pill, and the dot on the unselected one. */
+  /** Background of the pill. */
   fill: string;
-  /** Text/check color on top of `fill`. */
+  /** Icon/text color on top of `fill`. */
   ink: string;
-  /** Border color. Brighter than `fill` where `fill` would vanish on a dark background. */
+  /** Border and glow color. Brighter than `fill` where `fill` would vanish on a dark background. */
   edge: string;
 }
 
-/**
- * Reusable for anything that should match an option (count, tile tint, buttons...).
- * Mid-tone on purpose: only the selected pill is filled, the rest stay dark.
- */
-export const OPTION_COLORS: Partial<Record<string, OptionColor>> = {
-  Damage: { fill: '#dc2626', ink: '#ffffff', edge: '#ef4444' }, // red
-  Healing: { fill: '#fafafa', ink: '#171717', edge: '#fafafa' }, // white
-  Lifelink: { fill: '#f0e2b0', ink: '#292524', edge: '#f0e2b0' }, // ivory
-  Infect: { fill: '#22c55e', ink: '#052e16', edge: '#22c55e' }, // green
-  Commander: { fill: '#f59e0b', ink: '#1c1100', edge: '#fbbf24' }, // gold
-  Partner: { fill: '#38bdf8', ink: '#082f49', edge: '#7dd3fc' }, // sky blue
-  Drain: { fill: '#000000', ink: '#ffffff', edge: '#8a8a8a' }, // black (grey edge so it shows)
-  Extort: { fill: '#9333ea', ink: '#ffffff', edge: '#a855f7' }, // purple
-};
-
-const FALLBACK_COLOR: OptionColor = { fill: '#737373', ink: '#ffffff', edge: '#a3a3a3' };
-
-export function optionColor(key: string): OptionColor {
-  return OPTION_COLORS[key] ?? FALLBACK_COLOR;
+export interface Icon {
+  /** Inner markup of a 24x24 SVG, drawn in currentColor. */
+  svg: string;
+  /** Lighter version for small spots like counter badges. Falls back to `svg`. */
+  thinSvg?: string;
 }
 
-/** Types shown for a target; with a commander tag toggled, only the damage types. */
+/**
+ * pill:    fully rounded, icon and label (targets)
+ * rounded: rounded corners, icon and label (types)
+ * square:  small square, icon only; the label is just its accessible name (tags)
+ */
+export type Shape = 'pill' | 'rounded' | 'square';
+
+export interface ButtonDef {
+  label: string;
+  shape: Shape;
+  color: OptionColor;
+  icon: Icon;
+}
+
+/** One object per button, keyed by the button's id. */
+export const BUTTONS: Record<ButtonId, ButtonDef> = {
+  // ---------- targets: white ----------
+  Player: {
+    label: 'Player',
+    shape: 'pill',
+    color: { fill: '#ffffff', ink: '#000000', edge: '#ffffff' },
+    icon: { svg: icons['Player'] },
+  },
+  Opponents: {
+    label: 'Opponents',
+    shape: 'pill',
+    color: { fill: '#ffffff', ink: '#000000', edge: '#ffffff' },
+    icon: { svg: icons['Opponents'] },
+  },
+  All: {
+    label: 'All',
+    shape: 'pill',
+    color: { fill: '#ffffff', ink: '#000000', edge: '#ffffff' },
+    icon: { svg: icons['All'] },
+  },
+
+  // ---------- types ----------
+  Damage: {
+    label: 'Damage',
+    shape: 'rounded',
+    color: { fill: '#dc2626', ink: '#ffffff', edge: '#ef4444' }, // red
+    icon: { svg: icons['Damage'] },
+  },
+  Healing: {
+    label: 'Healing',
+    shape: 'rounded',
+    color: { fill: '#fafafa', ink: '#171717', edge: '#fafafa' }, // white
+    icon: { svg: icons['Healing'] },
+  },
+  Lifelink: {
+    label: 'Lifelink',
+    shape: 'rounded',
+    color: { fill: '#f0e2b0', ink: '#292524', edge: '#f0e2b0' }, // ivory
+    icon: { svg: icons['Lifelink'] },
+  },
+  Infect: {
+    label: 'Infect',
+    shape: 'rounded',
+    color: { fill: '#22c55e', ink: '#052e16', edge: '#22c55e' }, // green
+    icon: { svg: icons['Infect'], thinSvg: icons['InfectThin'] },
+  },
+  Drain: {
+    label: 'Drain',
+    shape: 'rounded',
+    color: { fill: '#000000', ink: '#ffffff', edge: '#8a8a8a' }, // black (grey edge so it shows)
+    icon: { svg: icons['Drain'] },
+  },
+  Extort: {
+    label: 'Extort',
+    shape: 'rounded',
+    color: { fill: '#9333ea', ink: '#ffffff', edge: '#a855f7' }, // purple
+    icon: { svg: icons['Extort'] },
+  },
+
+  // ---------- tags ----------
+  Commander: {
+    label: 'Commander',
+    shape: 'square',
+    color: { fill: '#f59e0b', ink: '#1c1100', edge: '#fbbf24' }, // gold
+    icon: { svg: icons['Commander'] },
+  },
+  Partner: {
+    label: 'Partner',
+    shape: 'square',
+    color: { fill: '#38bdf8', ink: '#082f49', edge: '#7dd3fc' }, // sky blue
+    icon: { svg: icons['Partner'] },
+  },
+};
+
+/** For anything that should match a button's color (target frame, tile highlight...). */
+export const optionColor = (id: ButtonId): OptionColor => BUTTONS[id].color;
+
+// =====================================================================================
+// 2. RELATIONS: which buttons show when
+// =====================================================================================
+
+/** Target buttons, in display order. Always all shown. */
+export const TARGETS: readonly ActionTarget[] = ['Player', 'Opponents', 'All'];
+
+/**
+ * The picked target decides which type buttons show (the keys), and the picked type decides
+ * which tag buttons show (the values). Everything is in display order.
+ */
+export const OPTION_TREE: Record<
+  ActionTarget,
+  Partial<Record<ActionType, readonly ActionTag[]>>
+> = {
+  Player: {
+    Damage: ['Commander', 'Partner'],
+    Lifelink: ['Commander', 'Partner'],
+    Healing: [],
+    Infect: [],
+  },
+  Opponents: { Damage: [], Healing: [], Drain: [], Extort: [], Infect: [] },
+  All: { Damage: [], Healing: [], Infect: [] },
+};
+
+/** Type buttons for a target. With a tag picked, only the types that have tags. */
 export function availableTypes(
   target: ActionTarget,
   tags: readonly ActionTag[],
 ): readonly ActionType[] {
-  const types = TYPE_OPTIONS_BY_TARGET[target];
-  return tags.some((t) => COMMANDER_TAGS.includes(t))
-    ? types.filter((t) => COMMANDER_TYPES.includes(t))
-    : types;
+  const types = Object.entries(OPTION_TREE[target]) as [ActionType, readonly ActionTag[]][];
+  return types.filter(([, typeTags]) => !tags.length || typeTags.length).map(([type]) => type);
 }
 
-/** Tags that exist for a target, whether or not the current type allows them. */
-export function tagOptions(target: ActionTarget, hasPartner: boolean): readonly ActionTag[] {
-  if (target !== 'Player') return [];
-  return hasPartner ? COMMANDER_TAGS : ['Commander'];
-}
-
-/** Tags usable right now: only on damage types. Empty means "collapse the tags". */
+/** Tag buttons for a target and type. Partner needs a seat with a partner commander. */
 export function availableTags(
   target: ActionTarget,
   type: ActionType,
   hasPartner: boolean,
 ): readonly ActionTag[] {
-  return COMMANDER_TYPES.includes(type) ? tagOptions(target, hasPartner) : [];
+  const tags = OPTION_TREE[target][type] ?? [];
+  return hasPartner ? tags : tags.filter((tag) => tag !== 'Partner');
+}
+
+/** Drops anything that's no longer valid after a change (e.g. switching target). */
+export function normalizeOptions(
+  value: ActionOptionsValue,
+  hasPartner: boolean,
+): ActionOptionsValue {
+  const { target } = value;
+  // Falls back to the target's first type
+  const type = value.type in OPTION_TREE[target] ? value.type : availableTypes(target, [])[0];
+  const allowed = availableTags(target, type, hasPartner);
+  // One tag at a time: Commander and Partner are exclusive
+  const tags = value.tags.filter((tag) => allowed.includes(tag)).slice(0, 1);
+  return { target, type, tags };
 }

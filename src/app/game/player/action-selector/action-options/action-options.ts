@@ -19,9 +19,10 @@ import {
   ActionTag,
   ActionTarget,
   ActionType,
-  COMMANDER_TYPES,
+  BUTTONS,
+  ButtonDef,
+  ButtonId,
   DEFAULT_ACTION_OPTIONS,
-  OPTION_COLORS,
   TARGETS,
   availableTags,
   availableTypes,
@@ -29,18 +30,9 @@ import {
 } from './action-options.config';
 import { OptionIcon } from './option-icon';
 
-interface Point {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-}
-
 interface OptionGroup {
   id: keyof ActionOptionsValue;
-  /** Not shown; used as the accessible name of the group. */
-  label: string;
-  /** single: pick exactly one (radio). multi: any number, including none (toggle). */
+  /** single: pick exactly one (radio). multi: toggle on and off (tags). */
   mode: 'single' | 'multi';
 }
 
@@ -50,7 +42,7 @@ interface OptionGroup {
  */
 type Item =
   | { key: string; kind: 'divider' }
-  | { key: string; kind: 'pill'; group: OptionGroup; option: string };
+  | { key: string; kind: 'pill'; group: OptionGroup; id: ButtonId; def: ButtonDef };
 
 interface Row {
   id: 'types' | 'targets';
@@ -58,9 +50,15 @@ interface Row {
   items: readonly Item[];
 }
 
-/** How long pills (and the options height) take to settle into the new layout. */
+interface Point {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 /** The one knob: base duration in ms. Everything else is a ratio of it. */
-const BASE_MS = 150;
+const BASE_MS = 200;
 
 const LEAVE_MS = BASE_MS * 0.5;
 
@@ -77,23 +75,43 @@ const DUR = {
   /** Selected state: grow, glow, colors. */
   select: BASE_MS * 0.75,
 } as const;
+
 const EASE = 'cubic-bezier(0.2, 0, 0, 1)';
 
-const TYPE_GROUP: OptionGroup = { id: 'type', label: 'Type', mode: 'single' };
-const TAG_GROUP: OptionGroup = { id: 'tags', label: 'Tag', mode: 'multi' };
-const TARGET_GROUP: OptionGroup = { id: 'target', label: 'Targets', mode: 'single' };
+const TYPE_GROUP: OptionGroup = { id: 'type', mode: 'single' };
+const TAG_GROUP: OptionGroup = { id: 'tags', mode: 'multi' };
+const TARGET_GROUP: OptionGroup = { id: 'target', mode: 'single' };
 
-const pill = (group: OptionGroup, option: string): Item => ({
-  key: `${group.id}:${option}`,
+const DIVIDER: Item = { key: 'divider', kind: 'divider' };
+
+const pill = (group: OptionGroup, id: ButtonId): Item => ({
+  key: `${group.id}:${id}`,
   kind: 'pill',
   group,
-  option,
+  id,
+  def: BUTTONS[id],
 });
 
 @Component({
   selector: 'app-action-options',
   host: { class: 'block' },
   imports: [OptionIcon],
+  styles: `
+    @keyframes pill-in {
+      from {
+        opacity: 0;
+        scale: 0.6;
+      }
+    }
+    .pill-in {
+      animation: pill-in var(--pill-in-fade) ease-out var(--pill-in-delay) backwards;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .pill-in {
+        animation: none;
+      }
+    }
+  `,
   template: `
     <!-- relative: pills measure their position against this, and leaving pills are pinned to it -->
     <div
@@ -111,37 +129,37 @@ const pill = (group: OptionGroup, option: string): Item => ({
           @for (item of row.items; track item.key) {
             @if (item.kind === 'pill') {
               @let group = item.group;
-              @let option = item.option;
-              @let selected = isSelected(group, option);
+              @let id = item.id;
+              @let def = item.def;
+              @let selected = isSelected(group, id);
               <button
                 type="button"
                 class="flex touch-manipulation items-center justify-center gap-2 border-2 transition active:scale-95 [-webkit-tap-highlight-color:transparent]"
-                [class]="pillClass(group, option, selected)"
-                [style.--fill]="colors[option]?.fill ?? null"
-                [style.--ink]="colors[option]?.ink ?? null"
-                [style.--edge]="colors[option]?.edge ?? null"
+                [class]="pillClass(def, selected)"
+                [class.pill-in]="fresh().has(item.key)"
+                [style.transition-duration.ms]="dur.select"
+                [style.--fill]="def.color.fill"
+                [style.--ink]="def.color.ink"
+                [style.--edge]="def.color.edge"
                 [attr.data-key]="item.key"
                 [attr.role]="group.mode === 'single' ? 'radio' : null"
                 [attr.aria-checked]="group.mode === 'single' ? selected : null"
                 [attr.aria-pressed]="group.mode === 'multi' ? selected : null"
-                [attr.aria-label]="group.id === 'tags' ? option : null"
-                [attr.data-key]="item.key"
-                [style.transition-duration.ms]="dur.select"
-                [class.pill-in]="fresh().has(item.key)"
+                [attr.aria-label]="def.shape === 'square' ? def.label : null"
                 (animate.leave)="leave($event)"
-                (click)="choose(group, option, $event)"
+                (click)="choose(group, id, $event)"
               >
                 <!-- Icon slot: same size in every state, so nothing shifts.
-                     Tags are icon-only, so their icon fills the button. -->
+                     Square buttons are icon only, so their icon fills the button. -->
                 <span
                   class="shrink-0"
-                  [class]="group.id === 'tags' ? 'size-full scale-75' : 'size-[1.4em]'"
+                  [class]="def.shape === 'square' ? 'size-full scale-75' : 'size-[1.4em]'"
                   aria-hidden="true"
                 >
-                  <app-option-icon [name]="option" />
+                  <app-option-icon [name]="id" />
                 </span>
-                @if (group.id !== 'tags') {
-                  {{ option }}
+                @if (def.shape !== 'square') {
+                  {{ def.label }}
                 }
               </button>
             } @else {
@@ -159,24 +177,6 @@ const pill = (group: OptionGroup, option: string): Item => ({
       }
     </div>
   `,
-  styles: `
-    @keyframes pill-in {
-      from {
-        opacity: 0;
-        scale: 0.6;
-      }
-    }
-    /* The delay lets leaving pills finish fading and sliding pills clear the spot
-     before the new pill appears there. Keep it at or above the leave duration (140ms). */
-    .pill-in {
-      animation: pill-in var(--pill-in-fade) ease-out var(--pill-in-delay) backwards;
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .pill-in {
-        animation: none;
-      }
-    }
-  `,
 })
 export class ActionOptions {
   /** Current choices. Two-way bindable: [(value)]="options". */
@@ -184,7 +184,6 @@ export class ActionOptions {
 
   partner = input.required<boolean>();
 
-  protected readonly colors = OPTION_COLORS;
   protected readonly dur = DUR;
   protected readonly enterDelayCss = `${DUR.enterDelay}ms`;
   protected readonly enterFadeCss = `${DUR.enterFade}ms`;
@@ -196,34 +195,30 @@ export class ActionOptions {
 
   /** False until the first layout is measured, so the initial render doesn't animate. */
   private ready = false;
-  /** Where each pill's center was after the last layout, by key. */
+  /** Where each pill's center and size were after the last layout, by key. */
   private positions = new Map<string, Point>();
   private width = 0;
   private height = 0;
 
   /**
-   * Type row on top, targets underneath. The tags (when the type can take them) follow the
-   * damage-like types behind a divider, so they read as modifiers of the damage.
+   * Type row on top, targets underneath. The tags (when the type has them) follow the
+   * last type that takes tags, behind a divider, so they read as modifiers of it.
    */
   protected readonly rows = computed<readonly Row[]>(() => {
     const { target, type, tags: selectedTags } = this.value();
+    const partner = this.partner();
 
     const types = availableTypes(target, selectedTags);
-    const tags = availableTags(target, type, this.partner());
+    const tags = availableTags(target, type, partner);
 
     const items: Item[] = types.map((t) => pill(TYPE_GROUP, t));
 
     if (tags.length) {
-      let lastDamage = -1;
-      types.forEach((t, i) => {
-        if (COMMANDER_TYPES.includes(t)) lastDamage = i;
-      });
-      items.splice(
-        lastDamage + 1,
-        0,
-        { key: 'divider', kind: 'divider' },
-        ...tags.map((t) => pill(TAG_GROUP, t)),
+      const lastTaggable = types.reduce(
+        (last, t, i) => (availableTags(target, t, partner).length ? i : last),
+        -1,
       );
+      items.splice(lastTaggable + 1, 0, DIVIDER, ...tags.map((t) => pill(TAG_GROUP, t)));
     }
 
     return [
@@ -231,6 +226,11 @@ export class ActionOptions {
       { id: 'targets', label: 'Targets', items: TARGETS.map((t) => pill(TARGET_GROUP, t)) },
     ];
   });
+
+  /** Keys in the current layout. Anything else still in the DOM is on its way out. */
+  private readonly currentKeys = computed(
+    () => new Set(this.rows().flatMap((row) => row.items.map((i) => i.key))),
+  );
 
   /**
    * Keys of pills that just appeared. Worked out from the previous layout, so the hidden
@@ -251,11 +251,6 @@ export class ActionOptions {
       return next;
     },
   });
-
-  /** Keys in the current layout. Anything else still in the DOM is on its way out. */
-  private readonly currentKeys = computed(
-    () => new Set(this.rows().flatMap((row) => row.items.map((i) => i.key))),
-  );
 
   constructor() {
     // After every layout change, once the DOM has updated, slide things to their new spots
@@ -323,16 +318,8 @@ export class ActionOptions {
   }
 
   /**
-   * Only genuinely new pills grow in; ones that merely moved slide via flip(). Done as a
-   * class so the hidden starting state is there from the element's first frame.
-   */
-  protected enterClass(item: Item) {
-    if (!this.ready || this.reducedMotion) return '';
-    return this.positions.has(item.key) ? '' : 'pill-in';
-  }
-
-  /**
-   * Pills that disappear shrink and fade where they stand. They're taken out of flow right
+   * Pills that disappear shrink and fade where they stand. They're pinned at the spot they
+   * were last drawn (not where the new layout would put them) and taken out of flow right
    * away, so the remaining pills can start sliding into the gap immediately.
    */
   protected leave(e: AnimationCallbackEvent) {
@@ -343,9 +330,7 @@ export class ActionOptions {
       return;
     }
 
-    // Where it was last drawn. The element's own offsets already reflect the new layout.
-    const key = el.dataset['key'] ?? '';
-    const prev = this.positions.get(key);
+    const prev = this.positions.get(el.dataset['key'] ?? '');
     const w = prev?.w ?? el.offsetWidth;
     const h = prev?.h ?? el.offsetHeight;
 
@@ -369,60 +354,56 @@ export class ActionOptions {
     );
   }
 
-  protected isSelected(group: OptionGroup, option: string) {
+  protected isSelected(group: OptionGroup, id: ButtonId) {
     const current = this.value()[group.id];
-    return Array.isArray(current) ? (current as string[]).includes(option) : current === option;
+    return Array.isArray(current) ? (current as string[]).includes(id) : current === id;
   }
 
-  protected pillClass(group: OptionGroup, option: string, selected: boolean) {
+  /** Classes for a button: its shape decides the size and how it looks selected. */
+  protected pillClass(def: ButtonDef, selected: boolean) {
     const size = 'min-h-[clamp(1.75rem,11cqmin,3.5rem)] text-[clamp(0.625rem,4cqmin,1.125rem)]';
-    // Same glow everywhere, tinted by the option's edge color (see OPTION_COLORS)
+    // Same glow everywhere, tinted by the button's edge color
     const glow = 'shadow-[0_0_14px_var(--edge)]';
 
-    // Tags: small square, no padding, so the icon can fill it. Always filled with the
-    // tag's color; selection is shown by the outline and glow.
-    if (group.id === 'tags') {
-      const tagSize = 'size-[clamp(2rem,12cqmin,3.5rem)] p-0';
-      return `${tagSize} rounded-xl bg-[var(--fill)] text-[var(--ink)] ${
-        selected
-          ? `${glow} scale-105 border-white ring-2 ring-white ring-offset-2 ring-offset-neutral-900`
-          : 'border-[var(--edge)]'
-      }`;
+    switch (def.shape) {
+      // Small, icon only, always filled; selection is shown by the outline and glow
+      case 'square':
+        return `size-[clamp(2rem,12cqmin,3.5rem)] p-0 rounded-xl bg-[var(--fill)] text-[var(--ink)] ${
+          selected
+            ? `${glow} scale-105 border-white ring-2 ring-white ring-offset-2 ring-offset-neutral-900`
+            : 'border-[var(--edge)]'
+        }`;
+
+      // Always filled with its color
+      case 'rounded':
+        return `${size} rounded-lg pl-[3cqmin] pr-[4cqmin] font-semibold bg-[var(--fill)] text-[var(--ink)] ${
+          selected
+            ? `${glow} scale-110 border-[var(--fill)] ring-2 ring-inset ring-[var(--ink)] font-bold`
+            : 'border-[var(--edge)]'
+        }`;
+
+      // Dark until selected, then filled: the fill is the selected signal
+      case 'pill':
+        return `${size} rounded-full px-[3.5cqmin] py-0.5 font-semibold ${
+          selected
+            ? 'scale-110 border-[var(--edge)] bg-[var(--fill)] text-[var(--ink)] font-bold shadow-[0_0_14px_color-mix(in_srgb,var(--edge)_60%,transparent)]'
+            : 'border-neutral-500 bg-neutral-800 text-white'
+        }`;
     }
-
-    const shape =
-      group.id === 'target'
-        ? `${size} rounded-full px-[3.5cqmin] py-0.5 font-semibold`
-        : `${size} rounded-lg pl-[3cqmin] pr-[4cqmin] font-semibold`;
-
-    if (this.colors[option]) {
-      return `${shape} bg-[var(--fill)] text-[var(--ink)] ${
-        selected
-          ? `${glow} scale-110 border-[var(--fill)] ring-2 ring-inset ring-[var(--ink)] font-bold`
-          : 'border-[var(--edge)]'
-      }`;
-    }
-
-    // Targets (no color config): white fill is the selected signal, plus a white glow
-    return `${shape} ${
-      selected
-        ? 'scale-110 border-white bg-white text-black font-bold shadow-[0_0_14px_rgb(255_255_255/0.6)]'
-        : 'border-neutral-500 bg-neutral-800 text-white'
-    }`;
   }
 
-  protected choose(group: OptionGroup, option: string, event: MouseEvent) {
+  protected choose(group: OptionGroup, id: ButtonId, event: MouseEvent) {
     this.pop(event.currentTarget as HTMLElement);
     this.value.update((v) => {
       switch (group.id) {
         case 'target':
-          return normalizeOptions({ ...v, target: option as ActionTarget }, this.partner());
+          return normalizeOptions({ ...v, target: id as ActionTarget }, this.partner());
         case 'type':
-          return normalizeOptions({ ...v, type: option as ActionType }, this.partner());
+          return normalizeOptions({ ...v, type: id as ActionType }, this.partner());
         case 'tags': {
-          const tag = option as ActionTag;
-          // Commander and Partner are exclusive: picking one replaces the other,
-          // tapping the selected one clears it.
+          const tag = id as ActionTag;
+          // Tapping the selected tag clears it. normalizeOptions keeps one tag at a time,
+          // so picking one replaces the other.
           const tags: ActionTag[] = v.tags.includes(tag) ? [] : [tag];
           return normalizeOptions({ ...v, tags }, this.partner());
         }
