@@ -9,6 +9,7 @@ import {
   effect,
   inject,
   input,
+  linkedSignal,
   model,
   untracked,
   viewChild,
@@ -27,6 +28,13 @@ import {
   normalizeOptions,
 } from './action-options.config';
 import { OptionIcon } from './option-icon';
+
+interface Point {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
 
 interface OptionGroup {
   id: keyof ActionOptionsValue;
@@ -50,13 +58,25 @@ interface Row {
   items: readonly Item[];
 }
 
-interface Point {
-  x: number;
-  y: number;
-}
-
 /** How long pills (and the options height) take to settle into the new layout. */
-const MOVE_MS = 260;
+/** The one knob: base duration in ms. Everything else is a ratio of it. */
+const BASE_MS = 150;
+
+const LEAVE_MS = BASE_MS * 0.5;
+
+const DUR = {
+  /** Pills sliding to a new spot, and the options area changing height. */
+  move: BASE_MS,
+  /** Pills shrinking away. */
+  leave: LEAVE_MS,
+  /** New pills wait for leaving ones to finish, plus a small gap. Tied to leave on purpose. */
+  enterDelay: LEAVE_MS * 1.2,
+  enterFade: BASE_MS * 0.55,
+  /** Click pop. */
+  pop: BASE_MS * 0.9,
+  /** Selected state: grow, glow, colors. */
+  select: BASE_MS * 0.75,
+} as const;
 const EASE = 'cubic-bezier(0.2, 0, 0, 1)';
 
 const TYPE_GROUP: OptionGroup = { id: 'type', label: 'Type', mode: 'single' };
@@ -74,27 +94,13 @@ const pill = (group: OptionGroup, option: string): Item => ({
   selector: 'app-action-options',
   host: { class: 'block' },
   imports: [OptionIcon],
-  styles: `
-    @keyframes pill-in {
-      from {
-        opacity: 0;
-        scale: 0.6;
-      }
-    }
-    .pill-in {
-      animation: pill-in 200ms ease-out 80ms backwards;
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .pill-in {
-        animation: none;
-      }
-    }
-  `,
   template: `
     <!-- relative: pills measure their position against this, and leaving pills are pinned to it -->
     <div
       #container
       class="relative flex flex-col items-center gap-[3cqmin] px-[3cqmin] py-[2cqmin]"
+      [style.--pill-in-delay]="enterDelayCss"
+      [style.--pill-in-fade]="enterFadeCss"
     >
       @for (row of rows(); track row.id) {
         <div
@@ -119,7 +125,9 @@ const pill = (group: OptionGroup, option: string): Item => ({
                 [attr.aria-checked]="group.mode === 'single' ? selected : null"
                 [attr.aria-pressed]="group.mode === 'multi' ? selected : null"
                 [attr.aria-label]="group.id === 'tags' ? option : null"
-                [animate.enter]="enterClass(item)"
+                [attr.data-key]="item.key"
+                [style.transition-duration.ms]="dur.select"
+                [class.pill-in]="fresh().has(item.key)"
                 (animate.leave)="leave($event)"
                 (click)="choose(group, option, $event)"
               >
@@ -141,7 +149,7 @@ const pill = (group: OptionGroup, option: string): Item => ({
               <span
                 class="h-[8cqmin] w-px shrink-0 bg-white/30"
                 data-key="divider"
-                [animate.enter]="enterClass(item)"
+                [class.pill-in]="fresh().has('divider')"
                 (animate.leave)="leave($event)"
                 aria-hidden="true"
               ></span>
@@ -151,6 +159,24 @@ const pill = (group: OptionGroup, option: string): Item => ({
       }
     </div>
   `,
+  styles: `
+    @keyframes pill-in {
+      from {
+        opacity: 0;
+        scale: 0.6;
+      }
+    }
+    /* The delay lets leaving pills finish fading and sliding pills clear the spot
+     before the new pill appears there. Keep it at or above the leave duration (140ms). */
+    .pill-in {
+      animation: pill-in var(--pill-in-fade) ease-out var(--pill-in-delay) backwards;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .pill-in {
+        animation: none;
+      }
+    }
+  `,
 })
 export class ActionOptions {
   /** Current choices. Two-way bindable: [(value)]="options". */
@@ -159,6 +185,9 @@ export class ActionOptions {
   partner = input.required<boolean>();
 
   protected readonly colors = OPTION_COLORS;
+  protected readonly dur = DUR;
+  protected readonly enterDelayCss = `${DUR.enterDelay}ms`;
+  protected readonly enterFadeCss = `${DUR.enterFade}ms`;
 
   private injector = inject(Injector);
   private host = inject<ElementRef<HTMLElement>>(ElementRef);
@@ -203,6 +232,31 @@ export class ActionOptions {
     ];
   });
 
+  /**
+   * Keys of pills that just appeared. Worked out from the previous layout, so the hidden
+   * starting state is bound with the element's first render instead of added by a hook.
+   * A key stays in the set for as long as its pill exists, so the class isn't removed mid-fade.
+   */
+  protected readonly fresh = linkedSignal<readonly Row[], ReadonlySet<string>>({
+    source: this.rows,
+    computation: (rows, previous) => {
+      const keysOf = (r: readonly Row[]) =>
+        new Set(r.flatMap((row) => row.items.map((i) => i.key)));
+      if (!previous) return new Set<string>(); // first render: nothing animates in
+      const before = keysOf(previous.source);
+      const next = new Set<string>();
+      for (const key of keysOf(rows)) {
+        if (!before.has(key) || previous.value.has(key)) next.add(key);
+      }
+      return next;
+    },
+  });
+
+  /** Keys in the current layout. Anything else still in the DOM is on its way out. */
+  private readonly currentKeys = computed(
+    () => new Set(this.rows().flatMap((row) => row.items.map((i) => i.key))),
+  );
+
   constructor() {
     // After every layout change, once the DOM has updated, slide things to their new spots
     effect(() => {
@@ -227,10 +281,15 @@ export class ActionOptions {
     const next = new Map<string, Point>();
 
     for (const el of root.querySelectorAll<HTMLElement>('[data-key]')) {
-      if (el.style.position === 'absolute') continue; // on its way out
-
       const key = el.dataset['key']!;
-      const pos = { x: el.offsetLeft + el.offsetWidth / 2, y: el.offsetTop + el.offsetHeight / 2 };
+      if (!this.currentKeys().has(key) || el.style.position === 'absolute') continue; // on its way out
+
+      const pos = {
+        x: el.offsetLeft + el.offsetWidth / 2,
+        y: el.offsetTop + el.offsetHeight / 2,
+        w: el.offsetWidth,
+        h: el.offsetHeight,
+      };
       next.set(key, pos);
 
       const prev = this.positions.get(key);
@@ -241,7 +300,7 @@ export class ActionOptions {
       if (Math.abs(dx) < 1 && Math.abs(dy) < 1) continue;
 
       el.animate([{ translate: `${dx}px ${dy}px` }, { translate: '0 0' }], {
-        duration: MOVE_MS,
+        duration: DUR.move,
         easing: EASE,
       });
     }
@@ -253,7 +312,7 @@ export class ActionOptions {
           { height: `${this.height}px`, overflow: 'clip' },
           { height: `${height}px`, overflow: 'clip' },
         ],
-        { duration: MOVE_MS, easing: EASE },
+        { duration: DUR.move, easing: EASE },
       );
     }
 
@@ -284,18 +343,24 @@ export class ActionOptions {
       return;
     }
 
+    // Where it was last drawn. The element's own offsets already reflect the new layout.
+    const key = el.dataset['key'] ?? '';
+    const prev = this.positions.get(key);
+    const w = prev?.w ?? el.offsetWidth;
+    const h = prev?.h ?? el.offsetHeight;
+
     Object.assign(el.style, {
       position: 'absolute',
-      left: `${el.offsetLeft}px`,
-      top: `${el.offsetTop}px`,
-      width: `${el.offsetWidth}px`,
-      height: `${el.offsetHeight}px`,
+      left: `${prev ? prev.x - w / 2 : el.offsetLeft}px`,
+      top: `${prev ? prev.y - h / 2 : el.offsetTop}px`,
+      width: `${w}px`,
+      height: `${h}px`,
       margin: '0',
       pointerEvents: 'none',
     });
 
     el.animate([{ opacity: 1 }, { opacity: 0, scale: '0.6' }], {
-      duration: 140,
+      duration: DUR.leave,
       easing: 'ease-in',
       fill: 'forwards',
     }).finished.then(
@@ -373,7 +438,7 @@ export class ActionOptions {
         { transform: 'scale(1.05)', offset: 0.4 },
         { transform: 'scale(1)' },
       ],
-      { duration: 180, easing: 'ease-out' },
+      { duration: DUR.pop, easing: 'ease-out' },
     );
   }
 }
