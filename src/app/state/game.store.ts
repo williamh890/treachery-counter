@@ -19,7 +19,9 @@ import {
   DEFAULT_ACTION_OPTIONS,
 } from '../game/player/action-selector/action-options/action-options.config';
 
+
 export type PlayerStatus = 'alive' | 'dead' | 'protected' | 'eliminated';
+export type LayoutMode = 'classic' | 'rows';
 
 export type Player = {
   id: number;
@@ -42,6 +44,7 @@ export type ActionSelect = {
 
 type GameState = {
   gameState: 'SETUP' | 'PLAY' | 'POST';
+  layoutMode: LayoutMode,
   playerCount: number;
   startingLife: number;
   players: Player[];
@@ -60,6 +63,7 @@ export type PreviewDelta = { life: number; infect: number };
 
 const initialState: GameState = {
   gameState: 'SETUP',
+  layoutMode: 'classic',
   playerCount: 4,
   startingLife: 40,
   players: [],
@@ -203,6 +207,9 @@ export const GameStore = signalStore(
     },
     setStartingLife(life: number) {
       patchState(store, { startingLife: Math.max(1, Math.round(life)) });
+    },
+    setLayoutMode(mode: LayoutMode) {
+      patchState(store, { layoutMode: mode });
     },
     setPlayerDeck(seat: number, deck: Deck | null) {
       patchState(store, ({ players }) => ({

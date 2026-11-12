@@ -19,6 +19,79 @@ type Tile = {
   sideways: boolean;
 };
 
+type Layout = {
+  // Direction the groups are stacked in the host:
+  // 'row' = groups side by side (classic columns), 'col' = groups stacked (rows layout).
+  direction: 'row' | 'col';
+  groups: Tile[][];
+};
+
+type TileSpec = { seat: number; turns: number };
+type LayoutSpec = TileSpec[][]; // outer = rows, inner = tiles in that row
+
+// Seats run clockwise: top row left→right, bottom row right→left.
+// Top tiles face the opposite side (2 turns), bottom tiles face you (0).
+const top = (seat: number): TileSpec => ({ seat, turns: 2 });
+const bottom = (seat: number): TileSpec => ({ seat, turns: 0 });
+// Side seats face inward from the short edges of the screen.
+const left = (seat: number): TileSpec => ({ seat, turns: 1 });
+const right = (seat: number): TileSpec => ({ seat, turns: -1 });
+
+const LAYOUTS: Record<number, LayoutSpec> = {
+  // Side by side (classic mode stacks the two tiles vertically instead).
+  2: [[left(0), right(1)]],
+  3: [[top(0), top(1)], [bottom(2)]],
+  4: [
+    [top(0), top(1)],
+    [bottom(3), bottom(2)],
+  ],
+  5: [
+    [top(0), top(1), top(2)],
+    [bottom(4), bottom(3)],
+  ],
+  6: [
+    [top(0), top(1), top(2)],
+    [bottom(5), bottom(4), bottom(3)],
+  ],
+  7: [
+    [top(0), top(1), top(2), top(3)],
+    [bottom(6), bottom(5), bottom(4)],
+  ],
+  8: [
+    [top(0), top(1), top(2), top(3)],
+    [bottom(7), bottom(6), bottom(5), bottom(4)],
+  ],
+  9: [
+    [top(0), top(1), top(2), top(3), top(4)],
+    [bottom(8), bottom(7), bottom(6), bottom(5)],
+  ],
+};
+
+// Describes where each seat ends up on screen (as fractions of the grid) and how it's rotated,
+// so two layouts built differently (columns vs. rows) can be compared by how they look.
+function visualSignature(layout: Layout): string {
+  const round = (n: number) => Math.round(n * 1000) / 1000;
+  const groupCount = layout.groups.length;
+  const tiles = layout.groups.flatMap((group, g) =>
+    group.map((tile, i) => {
+      const n = group.length;
+      const rect =
+        layout.direction === 'row'
+          ? { x: g / groupCount, y: i / n, w: 1 / groupCount, h: 1 / n }
+          : { x: i / n, y: g / groupCount, w: 1 / n, h: 1 / groupCount };
+      return {
+        seat: tile.playerIndex,
+        turns: tile.turns,
+        x: round(rect.x),
+        y: round(rect.y),
+        w: round(rect.w),
+        h: round(rect.h),
+      };
+    }),
+  );
+  return JSON.stringify(tiles.sort((a, b) => a.seat - b.seat));
+}
+
 @Component({
   selector: 'app-player-grid',
   imports: [
@@ -33,6 +106,8 @@ type Tile = {
   hostDirectives: [ActionGesture],
   host: {
     class: 'relative flex min-h-0 flex-1',
+    '[class.flex-row]': "layout().direction === 'row'",
+    '[class.flex-col]': "layout().direction === 'col'",
   },
   template: `
     @if (game.optionsOpen()) {
@@ -42,10 +117,14 @@ type Tile = {
         (closed)="game.closeOptions()"
       />
     }
-    @for (column of columns(); track $index) {
-      <div class="flex min-h-0 min-w-0 flex-1 flex-col">
-        @for (tile of column; track tile.playerIndex) {
-          <div class="relative min-h-0 flex-1 overflow-hidden [container-type:size]">
+    @for (group of layout().groups; track $index) {
+      <div
+        class="flex min-h-0 min-w-0 flex-1"
+        [class.flex-col]="layout().direction === 'row'"
+        [class.flex-row]="layout().direction === 'col'"
+      >
+        @for (tile of group; track tile.playerIndex) {
+          <div class="relative min-h-0 min-w-0 flex-1 overflow-hidden [container-type:size]">
             <div
               class="absolute bg-grey left-1/2 top-1/2 flex justify-center items-center"
               [class.touch-none]="game.gameState() === 'PLAY'"
@@ -83,6 +162,12 @@ type Tile = {
         class="pointer-events-none absolute left-1/2 top-1/2 z-10 flex -translate-x-1/2 -translate-y-1/2 items-center gap-3"
       >
         <button matButton="elevated" class="pointer-events-auto" (click)="back()">Back</button>
+
+        @if (layoutsDiffer()) {
+          <button matButton="elevated" class="pointer-events-auto" (click)="toggleLayout()">
+            Toggle Layout
+          </button>
+        }
 
         @if (game.playersReady()) {
           <button matButton="filled" class="pointer-events-auto" (click)="start()">Start</button>
@@ -166,6 +251,10 @@ export class Game {
     this.router.navigate(['/start-game']);
   }
 
+  toggleLayout() {
+    this.game.setLayoutMode(this.game.layoutMode() === 'rows' ? 'classic' : 'rows');
+  }
+
   protected onUserSelected(name: string) {
     if (!this.bannerName()) this.bannerName.set(name); // don't stack banners
   }
@@ -179,8 +268,9 @@ export class Game {
     this.game.applyDeathDescision(decision);
   }
 
-  // --- Layout (unchanged) ---
+  // --- Layouts ---
 
+  // Classic: outer array is columns, tiles stack vertically inside each column.
   readonly gridLayout = computed(() => {
     const players = this.game.players();
     const columns: number[][] = [];
@@ -200,14 +290,47 @@ export class Game {
     return columns;
   });
 
-  readonly columns = computed<Tile[][]>(() =>
-    this.gridLayout().map((column) =>
+  private readonly classicLayout = computed<Layout>(() => ({
+    direction: 'row',
+    groups: this.gridLayout().map((column) =>
       column.map((playerIndex) => {
         const turns = this.getPlayerQuarterTurns(column, playerIndex);
         return { playerIndex, turns, sideways: Math.abs(turns) % 2 === 1 };
       }),
     ),
-  );
+  }));
+
+  // Rows: outer array is rows, tiles sit side by side inside each row.
+  private readonly rowsLayout = computed<Layout | null>(() => {
+    const spec = LAYOUTS[this.game.players().length];
+    if (!spec) return null;
+    return {
+      direction: 'col',
+      groups: spec.map((row) =>
+        row.map(({ seat, turns }) => ({
+          playerIndex: seat,
+          turns,
+          sideways: Math.abs(turns) % 2 === 1,
+        })),
+      ),
+    };
+  });
+
+  // True when rows mode would look different from classic for the current player count.
+  protected readonly layoutsDiffer = computed(() => {
+    const rows = this.rowsLayout();
+    if (!rows) return false;
+    return visualSignature(rows) !== visualSignature(this.classicLayout());
+  });
+
+  // Falls back to classic when rows mode is selected but no spec exists for this player count.
+  protected readonly layout = computed<Layout>(() => {
+    if (this.game.layoutMode() === 'rows') {
+      const rows = this.rowsLayout();
+      if (rows) return rows;
+    }
+    return this.classicLayout();
+  });
 
   getPlayerQuarterTurns(column: number[], index: number) {
     if (column.length === 1) {

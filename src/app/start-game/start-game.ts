@@ -9,7 +9,6 @@ import { MatSelectModule } from '@angular/material/select';
 import { GameStore, MAX_PLAYERS } from '@state/game.store';
 import { GroupStore } from '@state/group.store';
 import { AuthService } from '@services/auth';
-import { MAX } from '@angular/forms/signals';
 
 @Component({
   selector: 'app-start-game',
