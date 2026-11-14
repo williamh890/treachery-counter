@@ -41,7 +41,12 @@ const snapDown = (n: number, step: number) => Math.max(0, (Math.ceil(n / step) -
   imports: [ActionOptions],
   host: { class: 'relative flex h-full w-full select-none flex-col' },
   template: `
-    <app-action-options class="shrink-0" [value]="options()" [partner]="hasPartner()" (valueChange)="setOptions($event)" />
+    <app-action-options
+      class="shrink-0"
+      [value]="options()"
+      [partner]="hasPartner()"
+      (valueChange)="setOptions($event)"
+    />
 
     <!-- Counter area: left half minus, right half plus. Its own size container, so the
          count and glyphs scale to the space they actually have. -->
@@ -83,7 +88,7 @@ const snapDown = (n: number, step: number) => Math.max(0, (Math.ceil(n / step) -
         <!-- Only as wide as the digits, so the preview can anchor to it -->
         <span class="relative" aria-live="polite">
           <!-- Digits get their own element so the bump scales them, not the preview -->
-          <span #countEl class="inline-block">{{ count() }}</span>
+          <span #countEl class="inline-block will-change-transform">{{ count() }}</span>
 
           <!-- This seat's life, with a preview of where the action leaves it.
                Absolutely positioned, so the minus/plus split stays 50/50. -->
@@ -224,14 +229,7 @@ export class ActionSelector {
 
     // Entrance: fade and scale in when the selector opens
     afterNextRender(() =>
-      this.play(
-        this.host.nativeElement,
-        [
-          { opacity: 0, transform: 'scale(0.98)' },
-          { opacity: 1, transform: 'scale(1)' },
-        ],
-        140,
-      ),
+      this.play(this.host.nativeElement, [{ opacity: 0 }, { opacity: 1 }], 140),
     );
 
     inject(DestroyRef).onDestroy(() => this.clearTimer());

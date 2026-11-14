@@ -13,7 +13,7 @@ import { TurnControls } from './turn-controls/turn-controls';
     @if (player()?.status === 'protected') {
       <button
         type="button"
-        class="absolute right-[3cqmin] top-[3cqmin] flex h-9 touch-manipulation items-center gap-1.5 rounded-full border border-red-400/70 bg-red-950/80 px-3.5 text-sm font-semibold text-red-100 shadow-md backdrop-blur-sm transition active:scale-95 active:bg-red-900 [-webkit-tap-highlight-color:transparent]"
+        class="absolute right-[3cqmin] top-[3cqmin] flex h-9 touch-manipulation items-center gap-1.5 rounded-full border border-red-400/70 bg-red-950/90 px-3.5 text-sm font-semibold text-red-100 shadow-md transition active:scale-95 active:bg-red-900 [-webkit-tap-highlight-color:transparent]"
         (click)="eliminate.emit()"
       >
         <span aria-hidden="true">☠</span>

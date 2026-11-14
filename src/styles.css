@@ -2,6 +2,8 @@
 
 @use '@angular/material' as mat;
 
+html { touch-action: manipulation; }
+
 .touch-toggles {
   @include mat.button-toggle-overrides((
     height: 64px,

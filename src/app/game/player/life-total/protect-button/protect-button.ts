@@ -13,7 +13,7 @@ import { Component, computed, input, output } from '@angular/core';
       @if (active()) {
         <!-- Unchanged from before, centered in the same footprint as the shield -->
         <span
-          class="flex size-10 items-center justify-center rounded-full border-2 border-sky-300 bg-sky-500/90 text-white shadow-md backdrop-blur-sm"
+          class="flex size-10 items-center justify-center rounded-full border-2 border-sky-300 bg-sky-500/90 text-white shadow-md"
         >
           <svg
             viewBox="0 0 24 24"

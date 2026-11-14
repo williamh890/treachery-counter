@@ -24,6 +24,7 @@ type ArtKind = 'commander' | 'partner';
         <div class="relative h-full min-w-0 flex-1 overflow-hidden">
           <img
             class="h-full w-full select-none object-cover object-top [-webkit-touch-callout:none]"
+            decoding="async"
             [src]="art.url"
             alt=""
             draggable="false"
@@ -76,8 +77,9 @@ type ArtKind = 'commander' | 'partner';
 
     <!-- Targeting frame in the action's color. Always mounted so it can fade out. -->
     <div
-      class="target-frame pointer-events-none absolute z-20 transition-opacity duration-300 ease-out motion-reduce:transition-none"
-      [class]="outlineColor() ? 'opacity-100' : 'opacity-0'"
+      // player.ts, on the .target-frame div
+      class="target-frame pointer-events-none absolute z-20 transition-[opacity,visibility] duration-300 ease-out motion-reduce:transition-none"
+      [class]="outlineColor() ? 'opacity-100 visible' : 'opacity-0 invisible'"
       [style.--glow]="outlineColor() ?? lastGlowColor()"
       aria-hidden="true"
     >
