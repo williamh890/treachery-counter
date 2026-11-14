@@ -39,7 +39,7 @@ export function installTapFix() {
       if (lastClick >= upAt || !button.isConnected) return; // a real click arrived
       lastSynth = performance.now();
       button.click();
-    }, 50);
+    }, 0);
   }, true);
 }
 
