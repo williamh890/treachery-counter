@@ -1,4 +1,4 @@
-import { Component, DestroyRef, computed, effect, inject, signal } from '@angular/core';
+import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { Router } from '@angular/router';
 import { GameStore, DeathDecision } from '@state/game.store';
@@ -6,7 +6,6 @@ import { PlayerSetup } from './player-setup/player-setup';
 import { Player } from './player/player';
 import { DragArrow } from './drag-arrow';
 import { ProfileStore } from '@state/profile.store';
-import { GroupStore } from '@state/group.store';
 import { DeadPlayersDialog } from './dead-player-dialog/dead-player-dialog';
 import { GameOptionsDialog } from './game-options-dialog/game-options-dialog';
 import { OrientationLock } from '@services/orientation-lock';
@@ -229,20 +228,28 @@ export class Game {
     () => this.game.players()?.filter((player) => player.status === 'dead') ?? [],
   );
 
-  private readonly groupStore = inject(GroupStore);
   protected orientation = inject(OrientationLock);
 
   constructor() {
-    this.orientation.lockLandscape();
+    if (this.isTouchScreen()) {
+      this.orientation.lockLandscape();
+    }
 
     inject(DestroyRef).onDestroy(() => this.orientation.unlock());
-
-    effect(() => {
-      if (!this.groupStore.ready()) return;
-      if (!this.game.group()) this.router.navigate(['/start-game']);
-    });
   }
 
+  isTouchScreen(): boolean {
+    // Guard against Server-Side Rendering (SSR) like Next.js
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+      return false;
+    }
+
+    return (
+      navigator.maxTouchPoints > 0 ||
+      'ontouchstart' in window ||
+      window.matchMedia('(pointer: coarse)').matches
+    );
+  }
   start() {
     this.game.playGame();
   }
