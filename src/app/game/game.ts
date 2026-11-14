@@ -1,4 +1,4 @@
-import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, computed, effect, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { Router } from '@angular/router';
 import { GameStore, DeathDecision } from '@state/game.store';
@@ -11,6 +11,7 @@ import { GameOptionsDialog } from './game-options-dialog/game-options-dialog';
 import { OrientationLock } from '@services/orientation-lock';
 import { Banner } from './banner/banner';
 import { ActionGesture } from './action-gesture';
+import { setTapFix } from '../../tap-fix';
 
 type Tile = {
   playerIndex: number;
@@ -235,7 +236,14 @@ export class Game {
       this.orientation.lockLandscape();
     }
 
-    inject(DestroyRef).onDestroy(() => this.orientation.unlock());
+    effect(() => {
+      setTapFix(this.game.gameState() === 'PLAY');
+    });
+
+    inject(DestroyRef).onDestroy(() => {
+      this.orientation.unlock();
+      setTapFix(false);
+    });
   }
 
   isTouchScreen(): boolean {
