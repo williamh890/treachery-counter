@@ -6,10 +6,12 @@ interface StorageSyncConfig<State> {
   version?: number;
   /** Pick which parts of state to persist. Defaults to everything. */
   select?: (state: State) => Partial<State>;
+  /** Coalesce rapid changes into one write. */
+  delayMs?: number;
 }
 
 export function withStorageSync<State extends object>(config: StorageSyncConfig<State>) {
-  const { key, version = 1, select = (s: State) => s } = config;
+  const { key, version = 1, select = (s: State) => s, delayMs = 300 } = config;
 
   return signalStoreFeature(
     { state: type<State>() },
@@ -33,14 +35,33 @@ export function withStorageSync<State extends object>(config: StorageSyncConfig<
           localStorage.removeItem(key);
         }
 
-        // Save on every state change (also runs once right away)
-        watchState(store, (state) => {
+        // Save: debounced, latest state wins
+        let latest: State | null = null;
+        let timer: ReturnType<typeof setTimeout> | undefined;
+
+        const flush = () => {
+          clearTimeout(timer);
+          timer = undefined;
+          if (latest === null) return;
+          const state = latest;
+          latest = null;
           try {
-            localStorage.setItem(key, JSON.stringify({ version, state: select(state as State) }));
+            localStorage.setItem(key, JSON.stringify({ version, state: select(state) }));
           } catch (e) {
             console.warn(`Could not save "${key}"`, e);
           }
+        };
+
+        watchState(store, (state) => {
+          latest = state as State;
+          timer ??= setTimeout(flush, delayMs); // at most one write per delayMs
         });
+
+        // A backgrounded PWA can be killed without warning, so write anything pending
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'hidden') flush();
+        });
+        addEventListener('pagehide', flush);
       },
     }),
   );

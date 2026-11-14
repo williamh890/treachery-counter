@@ -19,7 +19,6 @@ import {
   DEFAULT_ACTION_OPTIONS,
 } from '../game/player/action-selector/action-options/action-options.config';
 
-
 export type PlayerStatus = 'alive' | 'dead' | 'protected' | 'eliminated';
 export type LayoutMode = 'classic' | 'rows';
 
@@ -44,7 +43,7 @@ export type ActionSelect = {
 
 type GameState = {
   gameState: 'SETUP' | 'PLAY' | 'POST';
-  layoutMode: LayoutMode,
+  layoutMode: LayoutMode;
   playerCount: number;
   startingLife: number;
   players: Player[];
@@ -88,7 +87,12 @@ export const GameStore = signalStore(
   { providedIn: 'root' },
   withState(initialState),
   // Bumped from 1: the persisted shape gained groupId.
-  withStorageSync<GameState>({ key: 'game-state', version: 2 }),
+  withStorageSync<GameState>({
+    key: 'game-state',
+    version: 3,
+    // UI-only state: never persist an open selector
+    select: ({ actionSelect, actionOptions, ...persisted }) => persisted,
+  }),
 
   // Plain signals, not state, so withStorageSync never persists them.
   withProps(() => ({
