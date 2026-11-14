@@ -66,7 +66,6 @@ export class Header {
   });
 
   back() {
-    console.log(this.router.url);
     const url = this.router.url;
     if (url.includes('start-game')) {
       this.router.navigateByUrl('/home');

@@ -1,5 +1,5 @@
 // src/app/features/start-game/start-game.ts
-import { Component, effect, inject } from '@angular/core';
+import { Component, effect, inject, computed } from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
