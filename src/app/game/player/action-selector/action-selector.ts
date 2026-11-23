@@ -92,7 +92,7 @@ const snapDown = (n: number, step: number) => Math.max(0, (Math.ceil(n / step) -
 
           <!-- This seat's life, with a preview of where the action leaves it.
                Absolutely positioned, so the minus/plus split stays 50/50. -->
-          @if (sourceLife(); as life) {
+          @if (targetLife(); as life) {
             <span
               class="absolute bottom-full left-1/2 mb-[2cqmin] flex -translate-x-1/2 items-center gap-[2cqmin] whitespace-nowrap text-[8cqmin] font-semibold leading-none"
               aria-hidden="true"
@@ -181,8 +181,8 @@ export class ActionSelector {
   );
 
   /** Life of the seat this selector is on: committed value vs. the previewed one. */
-  protected readonly sourceLife = computed(() => {
-    const seat = this.gameStore.actionSelect()?.sourceSeat;
+  protected readonly targetLife = computed(() => {
+    const seat = this.gameStore.actionSelect()?.targetSeat;
     if (seat === undefined) return null;
     const before = this.gameStore.players()[seat]?.life;
     const after = this.gameStore.playerAt(seat)?.life;

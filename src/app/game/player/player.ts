@@ -58,7 +58,7 @@ type ArtKind = 'commander' | 'partner';
             Go first
           </button>
         </div>
-      } @else if (actionSelect()?.sourceSeat === seat()) {
+      } @else if (actionSelect()?.targetSeat === seat()) {
         <app-action-selector
           [seat]="seat()"
           (apply)="applyAction($event)"

@@ -124,15 +124,18 @@ function visualSignature(layout: Layout): string {
         [class.flex-row]="layout().direction === 'col'"
       >
         @for (tile of group; track tile.playerIndex) {
+          @let turns = turnsFor(tile);
+          @let sideways = turns % 2 !== 0;
+
           <div class="relative min-h-0 min-w-0 flex-1 overflow-hidden [container-type:size]">
             <div
               class="absolute bg-grey left-1/2 top-1/2 flex justify-center items-center"
               [class.touch-none]="game.gameState() === 'PLAY'"
               [class.select-none]="game.gameState() === 'PLAY'"
               [attr.data-seat]="tile.playerIndex"
-              [style.width]="tile.sideways ? '100cqh' : '100cqw'"
-              [style.height]="tile.sideways ? '100cqw' : '100cqh'"
-              [style.transform]="'translate(-50%, -50%) rotate(' + tile.turns * 90 + 'deg)'"
+              [style.width]="sideways ? '100cqh' : '100cqw'"
+              [style.height]="sideways ? '100cqw' : '100cqh'"
+              [style.transform]="'translate(-50%, -50%) rotate(' + turns * 90 + 'deg)'"
             >
               @if (game.gameState() === 'SETUP') {
                 <app-player-setup
@@ -346,6 +349,24 @@ export class Game {
     }
     return this.classicLayout();
   });
+
+  // Replaces actionSelectTile
+  private readonly actionSelectOverride = computed(() => {
+    const select = this.game.actionSelect();
+    if (select == null) return null;
+
+    const source = this.layout()
+      .groups.flat()
+      .find((tile) => tile.playerIndex === select.sourceSeat);
+
+    return source ? { targetSeat: select.targetSeat, turns: source.turns } : null;
+  });
+
+  // Only the target tile copies the source's rotation; every other tile keeps its own.
+  protected turnsFor(tile: Tile): number {
+    const override = this.actionSelectOverride();
+    return override?.targetSeat === tile.playerIndex ? override.turns : tile.turns;
+  }
 
   getPlayerQuarterTurns(column: number[], index: number) {
     if (column.length === 1) {
