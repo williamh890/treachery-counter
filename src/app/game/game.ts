@@ -180,6 +180,7 @@ function visualSignature(layout: Layout): string {
     } @else if (playersTurn() === null) {
       <div
         class="pointer-events-none absolute left-1/2 top-1/2 z-10 flex -translate-x-1/2 -translate-y-1/2 items-center gap-3"
+        [class.-rotate-90]="rotateButtons()"
       >
         <button matButton="elevated" class="pointer-events-auto" (click)="setRandomPlayersTurn()">
           Random
