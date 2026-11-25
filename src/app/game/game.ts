@@ -162,7 +162,8 @@ function visualSignature(layout: Layout): string {
 
     @if (game.gameState() === 'SETUP') {
       <div
-        class="pointer-events-none absolute left-1/2 top-1/2 z-10 flex -translate-x-1/2 -translate-y-1/2 items-center gap-3"
+        class="pointer-events-none absolute left-1/2 top-1/2 z-10 flex -translate-x-1/2 -translate-y-1/2 items-center gap-3 transition-transform"
+        [class.rotate-90]="rotateButtons()"
       >
         <button matButton="elevated" class="pointer-events-auto" (click)="back()">Back</button>
 
@@ -230,6 +231,9 @@ export class Game {
   playersTurn = computed(() => this.game.turnSeat());
   deadPlayers = computed(
     () => this.game.players()?.filter((player) => player.status === 'dead') ?? [],
+  );
+  rotateButtons = computed(
+    () => this.game.layoutMode() === 'rows' && this.game.players().length === 2,
   );
 
   protected orientation = inject(OrientationLock);

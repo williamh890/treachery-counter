@@ -7,7 +7,6 @@ import { GameStore } from '@state/game.store';
 import { ProfileStore, AppUser } from '@state/profile.store';
 
 enum SetupState {
-  AccountOrGuest,
   UserSelect,
   DeckSelect,
   DeckSelected,
@@ -34,7 +33,7 @@ export class PlayerSetup {
   readonly userSelected = output<string>();
 
   SetupState = SetupState;
-  state = signal<SetupState>(SetupState.AccountOrGuest);
+  state = signal<SetupState>(SetupState.UserSelect);
   selectedUid = signal<string | null>(null);
 
   /** Decks of the chosen account, straight from the store's cache. */
@@ -85,10 +84,6 @@ export class PlayerSetup {
     this.userSelected.emit(user.username);
   }
 
-  chooseAccount() {
-    this.state.set(SetupState.UserSelect);
-  }
-
   chooseGuest() {
     this.gameStore.setPlayerIsGuest(this.seat(), true);
     this.state.set(SetupState.DeckSelected);
@@ -101,7 +96,7 @@ export class PlayerSetup {
 
   previousState() {
     const current = this.state();
-    if (current === SetupState.AccountOrGuest) return;
+    if (current === SetupState.UserSelect) return;
 
     // Clear data belonging to the state we're leaving.
     if (current === SetupState.DeckSelected) {

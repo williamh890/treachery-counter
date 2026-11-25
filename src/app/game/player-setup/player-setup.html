@@ -1,16 +1,15 @@
 <div class="flex h-full min-w-0 flex-col items-center justify-center gap-2 p-2">
   <div class="text-center text-xs opacity-60">Seat {{ seat() }} ▲</div>
 
-  @if (state() === SetupState.AccountOrGuest) {
-    <button (click)="chooseAccount()" matButton="elevated">Choose Account</button>
-    <button (click)="chooseGuest()" matButton="elevated">Guest</button>
-  } @else if (state() === SetupState.UserSelect) {
+  @if (state() === SetupState.UserSelect) {
     <mat-chip-set aria-label="Player Selection">
       @for (user of usersNotInGame(); track user.uid) {
         <mat-chip (click)="selectUser(user)">{{ user.username }}</mat-chip>
-      } @empty {
-        <mat-chip>No players found.</mat-chip>
       }
+    </mat-chip-set>
+
+    <mat-chip-set aria-label="Player Selection">
+      <mat-chip (click)="chooseGuest()">Guest</mat-chip>
     </mat-chip-set>
   } @else if (state() === SetupState.DeckSelect) {
     <ul
@@ -64,7 +63,7 @@
     </div>
   }
 
-  @if (state() !== SetupState.AccountOrGuest) {
+  @if (state() !== SetupState.UserSelect) {
     <button (click)="previousState()" matButton="text">← Back</button>
   }
 </div>

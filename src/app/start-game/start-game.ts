@@ -92,7 +92,7 @@ export class StartGame {
   protected readonly groups = this.groupStore.groupsWithMembers;
 
   readonly lifeOptions = [20, 25, 40];
-  readonly playerOptions = Array.from({ length: MAX_PLAYERS }, (_, i) => i + 1);
+  readonly playerOptions = Array.from({ length: MAX_PLAYERS - 1 }, (_, i) => i + 2);
 
   readonly form = this.fb.group({
     groupId: this.fb.control<string | null>(this.game.groupId()),

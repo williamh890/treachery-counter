@@ -74,7 +74,7 @@ const initialState: GameState = {
 
 export type DeathDecision = { kill: number[]; protect: number[] };
 
-export const MIN_PLAYERS = 1;
+export const MIN_PLAYERS = 2;
 export const MAX_PLAYERS = 9;
 const MAX_HISTORY = 50;
 
