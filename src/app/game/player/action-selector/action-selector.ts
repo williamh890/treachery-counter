@@ -151,7 +151,7 @@ export class ActionSelector {
 
   hasPartner = computed(() => {
     const seat = this.gameStore.actionSelect()?.sourceSeat;
-    if (!seat) return;
+    if (!seat) return false;
 
     const player = this.gameStore.playerAt(seat);
 
