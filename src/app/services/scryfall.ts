@@ -4,13 +4,18 @@ import { inject, Injectable } from '@angular/core';
 import { catchError, map, Observable, of } from 'rxjs';
 import { Commander } from '../models//deck';
 
-interface ScryfallImages { art_crop?: string; border_crop?: string }
+interface ScryfallImages {
+  art_crop?: string;
+  border_crop?: string;
+}
 interface ScryfallCard {
   name: string;
   image_uris?: ScryfallImages;
   card_faces?: { image_uris?: ScryfallImages }[];
 }
-interface ScryfallList { data: ScryfallCard[] }
+interface ScryfallList {
+  data: ScryfallCard[];
+}
 
 @Injectable({ providedIn: 'root' })
 export class ScryfallService {
@@ -20,16 +25,21 @@ export class ScryfallService {
     const q = query.trim().replace(/"/g, '');
     if (q.length < 2) return of([]);
 
-    const params = new HttpParams()
-      .set('q', `name:"${q}" is:commander`)
-      .set('unique', 'cards');
+    const params = new HttpParams().set('q', `name:"${q}" is:commander`).set('unique', 'cards');
 
-    return this.http
-      .get<ScryfallList>('https://api.scryfall.com/cards/search', { params })
-      .pipe(
-        map((res) => res.data.slice(0, 10).map(toCommander)),
-        catchError(() => of([])), // Scryfall returns 404 when nothing matches
-      );
+    return this.http.get<ScryfallList>('https://api.scryfall.com/cards/search', { params }).pipe(
+      map((res) => res.data.slice(0, 10).map(toCommander)),
+      catchError(() => of([])), // Scryfall returns 404 when nothing matches
+    );
+  }
+
+  randomCommander(): Observable<Commander | null> {
+    const params = new HttpParams().set('q', 'is:commander');
+
+    return this.http.get<ScryfallCard>('https://api.scryfall.com/cards/random', { params }).pipe(
+      map(toCommander),
+      catchError(() => of(null)),
+    );
   }
 }
 
