@@ -1,4 +1,12 @@
-import { Component, DestroyRef, computed, effect, inject, signal, viewChildren } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  computed,
+  effect,
+  inject,
+  signal,
+  viewChildren,
+} from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { Router } from '@angular/router';
 import { GameStore, DeathDecision } from '@state/game.store';
@@ -112,8 +120,9 @@ function visualSignature(layout: Layout): string {
   template: `
     @if (game.optionsOpen()) {
       <app-game-options-dialog
-        (finish)="finishGame($event)"
+        (finish)="finishGame()"
         (stop)="stopGame()"
+        (restart)="restartGame()"
         (closed)="game.closeOptions()"
       />
     }
@@ -396,11 +405,15 @@ export class Game {
     return isTopTile ? 2 : 0;
   }
 
-  finishGame(winners: number[]) {
-    console.log(winners);
+  finishGame() {
     this.game.closeOptions();
     this.game.resetGame();
     this.router.navigateByUrl('/home');
+  }
+
+  restartGame() {
+    this.game.closeOptions();
+    this.game.restartGame();
   }
 
   stopGame() {

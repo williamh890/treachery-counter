@@ -19,6 +19,10 @@ import {
   DEFAULT_ACTION_OPTIONS,
 } from '../game/player/action-selector/action-options/action-options.config';
 
+
+const zeroDmg = (n: number): Record<number, number> =>
+  Object.fromEntries(Array.from({ length: n }, (_, seat) => [seat, 0]));
+
 export type PlayerStatus = 'alive' | 'dead' | 'protected' | 'eliminated';
 export type LayoutMode = 'classic' | 'rows';
 
@@ -292,6 +296,24 @@ export const GameStore = signalStore(
         isGuest: false,
       }));
       patchState(store, { gameState: 'SETUP', players, turnSeat: null, actionSelect: null });
+    },
+    /** Same seats, fresh game: life, counters and statuses reset; stays in PLAY. */
+    restartGame() {
+      store._clearHistory();
+      store._actionCount.set(0);
+      patchState(store, ({ players, startingLife }) => ({
+        turnSeat: null,
+        actionSelect: null,
+        actionOptions: null,
+        players: players.map((p): Player => ({
+          ...p,
+          status: 'alive',
+          life: startingLife,
+          infect: 0,
+          commanderDmg: zeroDmg(players.length),
+          partnerDmg: zeroDmg(players.length),
+        })),
+      }));
     },
     playGame() {
       store._clearHistory();

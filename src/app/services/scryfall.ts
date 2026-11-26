@@ -43,7 +43,6 @@ export class ScryfallService {
   }
 
   randomCommanders(n: number): Observable<Commander[] | null> {
-    console.log(n);
     return range(0, n).pipe(
       concatMap(() => this.randomCommander().pipe(delay(100))),
       toArray(),
