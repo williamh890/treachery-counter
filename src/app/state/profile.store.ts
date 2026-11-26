@@ -16,6 +16,7 @@ import {
   DocumentSnapshot,
   Query,
   QuerySnapshot,
+  addDoc,
   collection,
   doc,
   getDocs,
@@ -206,6 +207,15 @@ export const ProfileStore = signalStore(
         console.error(`Error loading decks for user ${userId}:`, error);
         return [];
       }
+    },
+    // in withMethods
+    async addDeck(targetUid: string, deck: Deck, groupId: string | null) {
+      const currentUid = auth.uid();
+      if (!currentUid) throw new Error('Not signed in');
+      await addDoc(collection(db, 'users', targetUid, 'decks'), {
+        ...deck,
+        ...(groupId ? { groupId, addedBy: currentUid } : {}),
+      });
     },
   })),
 

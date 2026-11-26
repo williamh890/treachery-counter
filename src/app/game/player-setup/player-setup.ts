@@ -21,6 +21,7 @@ import { NewDeckDialog, NewDeckDialogData } from '../../profiles/new-deck-dialog
 import { firstValueFrom } from 'rxjs';
 import { addDoc, collection } from 'firebase/firestore';
 import { db } from '@services/firebase';
+import { DeckSelect } from './deck-select/deck-select';
 
 enum SetupState {
   UserSelect,
@@ -34,11 +35,73 @@ interface DeckCardInfo {
 }
 
 @Component({
-  imports: [MatButtonModule, MatChipsModule, MatIconModule],
+  imports: [MatButtonModule, MatChipsModule, MatIconModule, DeckSelect],
   host: { class: 'block h-full w-full min-w-0 overflow-hidden' },
   selector: 'app-player-setup',
-  styleUrl: './player-setup.css',
-  templateUrl: './player-setup.html',
+  template: `
+    <div class="flex h-full min-h-0 min-w-0 flex-col items-center justify-center gap-2 p-4">
+      <div class="grid w-full shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 p-4">
+        <div class="justify-self-start">
+          @if (state() !== SetupState.UserSelect) {
+            <button (click)="previousState()" matButton="text">← Back</button>
+          }
+        </div>
+
+        <div class="min-w-0 truncate text-center text-xs opacity-60">
+          @if (player()?.name) {
+            {{ player()?.name }}
+          } @else {
+            Seat {{ seat() }} ▲
+          }
+        </div>
+
+        <div class="justify-self-end">
+          @if (state() === SetupState.DeckSelect) {
+            <button (click)="skipDeck()" matButton="text">Skip →</button>
+          }
+        </div>
+      </div>
+
+      @if (state() === SetupState.UserSelect) {
+        <mat-chip-set aria-label="Player Selection">
+          @for (user of usersNotInGame(); track user.uid) {
+            <mat-chip (click)="selectUser(user)">{{ user.username }}</mat-chip>
+          }
+        </mat-chip-set>
+
+        <mat-chip-set aria-label="Player Selection">
+          <mat-chip (click)="chooseGuest()">Guest</mat-chip>
+        </mat-chip-set>
+      } @else if (state() === SetupState.DeckSelect) {
+        <app-deck-select
+          [decks]="decks()"
+          [isGuest]="!!player()?.isGuest"
+          (select)="selectDeck($event)"
+          (add)="addDeck()"
+        />
+      } @else if (state() === SetupState.DeckSelected) {
+        <div class="text-center text-lg font-semibold">
+          {{ playerDeck()?.name ?? player()?.name }}
+        </div>
+
+        <div class="flex w-full min-w-0 justify-center gap-2">
+          @for (item of selectedCards(); track item.role) {
+            <figure class="flex min-w-0 max-w-28 flex-1 flex-col items-center gap-1">
+              <img
+                class="aspect-[5/7] w-full rounded-md object-cover shadow"
+                [src]="item.card.url"
+                [alt]="item.card.name"
+              />
+              <figcaption class="w-full text-center text-[0.65rem] leading-tight">
+                <span class="block uppercase tracking-wide opacity-60">{{ item.role }}</span>
+                {{ item.card.name }}
+              </figcaption>
+            </figure>
+          }
+        </div>
+      }
+    </div>
+  `,
 })
 export class PlayerSetup {
   gameStore = inject(GameStore);
@@ -52,6 +115,7 @@ export class PlayerSetup {
   SetupState = SetupState;
   state = signal<SetupState>(SetupState.UserSelect);
   selectedUid = signal<string | null>(null);
+
   /** True once this seat has finished setup (deck picked, skipped, or temp deck added). */
   readonly ready = computed(() => this.state() === SetupState.DeckSelected);
 
@@ -59,12 +123,6 @@ export class PlayerSetup {
   decks = computed<Deck[]>(() => {
     const uid = this.selectedUid();
     return (uid && this.profileStore.decksByUser()[uid]) || [];
-  });
-
-  /** False only while a chosen account's decks haven't arrived yet. */
-  decksLoaded = computed(() => {
-    const uid = this.selectedUid();
-    return !uid || this.profileStore.decksByUser()[uid] !== undefined;
   });
 
   player = computed(() => this.gameStore.playerAt(this.seat()));
