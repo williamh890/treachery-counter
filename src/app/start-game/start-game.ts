@@ -1,5 +1,5 @@
 // src/app/features/start-game/start-game.ts
-import { Component, effect, inject, computed } from '@angular/core';
+import { Component, effect, inject, computed, signal } from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -9,10 +9,15 @@ import { MatSelectModule } from '@angular/material/select';
 import { GameStore, MAX_PLAYERS } from '@state/game.store';
 import { GroupStore } from '@state/group.store';
 import { AuthService } from '@services/auth';
+import { firstValueFrom } from 'rxjs';
+import { ScryfallService } from '@services/scryfall';
+import { Deck } from '@models/deck';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 @Component({
   selector: 'app-start-game',
   imports: [
+    MatProgressSpinnerModule,
     ReactiveFormsModule,
     RouterLink,
     MatButtonModule,
@@ -79,7 +84,27 @@ import { AuthService } from '@services/auth';
         </mat-button-toggle-group>
       </section>
 
-      <button mat-flat-button type="submit" [disabled]="form.invalid">Start game</button>
+      <section>
+        <button
+          type="button"
+          class="m-3 min-w-36"
+          mat-stroked-button
+          (click)="quickStart()"
+          [disabled]="form.invalid || loading()"
+        >
+          <span class="inline-flex items-center gap-2">
+            Quick start
+
+            @if (loading()) {
+              <mat-spinner
+                diameter="18"
+                class="shrink-0 [--mat-progress-spinner-active-indicator-color:currentColor]"
+              />
+            }
+          </span>
+        </button>
+        <button mat-flat-button type="submit" [disabled]="form.invalid">Setup game</button>
+      </section>
     </form>
   `,
 })
@@ -88,6 +113,7 @@ export class StartGame {
   private game = inject(GameStore);
   private router = inject(Router);
   private auth = inject(AuthService);
+  scryfall = inject(ScryfallService);
   protected readonly groupStore = inject(GroupStore);
   protected readonly groups = this.groupStore.groupsWithMembers;
 
@@ -99,6 +125,8 @@ export class StartGame {
     startingLife: this.fb.control(this.game.startingLife(), Validators.required),
     playerCount: this.fb.control(this.game.playerCount(), Validators.required),
   });
+
+  loading = signal(false);
 
   protected uid = computed(() => this.auth.currentUser()?.uid ?? null);
 
@@ -136,5 +164,41 @@ export class StartGame {
     this.game.startGameSetup();
 
     this.router.navigate(['/game']);
+  }
+
+  async quickStart() {
+    if (this.loading()) return;
+
+    const { startingLife, playerCount } = this.form.getRawValue();
+
+    this.game.resetGame();
+    this.game.setStartingLife(startingLife);
+    this.game.setPlayerCount(playerCount);
+
+    this.loading.set(true);
+    try {
+      const decks = await this.rngDecks(playerCount);
+      this.game.startGameSetup();
+      decks.forEach((deck, i) => this.game.setPlayerDeck(i, deck));
+    } finally {
+      this.loading.set(false);
+    }
+
+    this.game.playGame();
+    this.router.navigate(['/game']);
+  }
+
+  async rngDecks(n: number): Promise<Deck[]> {
+    const commanders = await firstValueFrom(this.scryfall.randomCommanders(n));
+
+    return (commanders ?? []).map((commander) => {
+      const deck: Deck = {
+        id: `rng-${commander.name}`,
+        name: commander.name,
+        commander,
+      };
+
+      return deck;
+    });
   }
 }

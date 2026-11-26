@@ -1,7 +1,7 @@
 // features/decks/scryfall.service.ts
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
-import { catchError, map, Observable, of } from 'rxjs';
+import { catchError, concatMap, delay, map, Observable, of, range, toArray } from 'rxjs';
 import { Commander } from '../models//deck';
 
 interface ScryfallImages {
@@ -39,6 +39,19 @@ export class ScryfallService {
     return this.http.get<ScryfallCard>('https://api.scryfall.com/cards/random', { params }).pipe(
       map(toCommander),
       catchError(() => of(null)),
+    );
+  }
+
+  randomCommanders(n: number): Observable<Commander[] | null> {
+    console.log(n);
+    return range(0, n).pipe(
+      concatMap(() => this.randomCommander().pipe(delay(100))),
+      toArray(),
+      map((list) => list.filter((c): c is Commander => c !== null)),
+      catchError((err) => {
+        console.error('Scryfall random failed', err);
+        return of(null);
+      }),
     );
   }
 }

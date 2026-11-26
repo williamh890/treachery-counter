@@ -278,6 +278,7 @@ export class Game {
       window.matchMedia('(pointer: coarse)').matches
     );
   }
+
   start() {
     this.game.playGame();
   }
