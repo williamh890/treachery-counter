@@ -129,7 +129,9 @@ function visualSignature(layout: Layout): string {
 
           <div class="relative min-h-0 min-w-0 flex-1 overflow-hidden [container-type:size]">
             <div
-              class="absolute border-1 bg-grey left-1/2 top-1/2 flex justify-center items-center"
+              class="absolute bg-grey left-1/2 top-1/2 flex justify-center items-center"
+              [class.border-1]="game.gameState() === 'SETUP'"
+              [class.border-neutral-300]="game.gameState() === 'SETUP'"
               [class.touch-none]="game.gameState() === 'PLAY'"
               [class.select-none]="game.gameState() === 'PLAY'"
               [attr.data-seat]="tile.playerIndex"
