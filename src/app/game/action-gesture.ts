@@ -66,6 +66,7 @@ export class ActionGesture {
   }
 
   protected onPointerDown(e: PointerEvent) {
+    if (!this.gesturesEnabled() || this.press) return;
     if (this.game.gameState() !== 'PLAY' || this.press) return;
     if (e.pointerType === 'mouse' && e.button !== 0) return;
 
@@ -175,6 +176,7 @@ export class ActionGesture {
   }
 
   private openActionSelect(sourceSeat: number, targetSeat: number) {
+    if (!this.gesturesEnabled()) return;
     this.game.setActionSelect(sourceSeat, targetSeat);
   }
 
@@ -194,5 +196,9 @@ export class ActionGesture {
       'seat'
     ];
     return seat === undefined ? null : Number(seat);
+  }
+
+  private gesturesEnabled(): boolean {
+    return this.game.gameState() === 'PLAY' && this.game.turnSeat() !== null;
   }
 }

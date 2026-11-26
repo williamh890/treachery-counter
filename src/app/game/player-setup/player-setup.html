@@ -1,5 +1,25 @@
-<div class="flex h-full min-w-0 flex-col items-center justify-center gap-2 p-2">
-  <div class="text-center text-xs opacity-60">Seat {{ seat() }} ▲</div>
+<div class="flex h-full min-h-0 min-w-0 flex-col items-center justify-center gap-2 p-4">
+<div class="grid w-full shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 p-4">
+  <div class="justify-self-start">
+    @if (state() !== SetupState.UserSelect) {
+      <button (click)="previousState()" matButton="text">← Back</button>
+    }
+  </div>
+
+  <div class="min-w-0 truncate text-center text-xs opacity-60">
+    @if (player()?.name) {
+      {{ player()?.name }}
+    } @else {
+      Seat {{ seat() }} ▲
+    }
+  </div>
+
+  <div class="justify-self-end">
+    @if (state() === SetupState.DeckSelect) {
+      <button (click)="skipDeck()" matButton="text">Skip →</button>
+    }
+  </div>
+</div>
 
   @if (state() === SetupState.UserSelect) {
     <mat-chip-set aria-label="Player Selection">
@@ -13,57 +33,65 @@
     </mat-chip-set>
   } @else if (state() === SetupState.DeckSelect) {
     <ul
-      class="flex max-h-64 min-h-0 w-full flex-1 flex-wrap content-start justify-center gap-1 overflow-y-auto overflow-x-hidden"
+      class="flex min-h-0 w-full flex-1 flex-wrap content-start justify-center gap-1 overflow-y-auto overflow-x-hidden"
     >
+
       @for (deck of decks(); track deck.id) {
         <li class="w-20">
           <button
-            type="button"
-            class="flex w-full cursor-pointer flex-col items-center gap-0.5 rounded p-0.5 transition hover:bg-black/5 dark:hover:bg-white/10"
-            (click)="selectDeck(deck)"
+          type="button"
+          class="flex w-full cursor-pointer flex-col items-center gap-0.5 rounded p-0.5 transition hover:bg-black/5 dark:hover:bg-white/10"
+          (click)="selectDeck(deck)"
           >
-            <img
-              class="aspect-[7/5] w-full rounded-sm object-cover object-top shadow"
-              loading="lazy"
-              [src]="deck.commander.url"
-              [alt]="deck.commander.name"
+          <img
+          class="aspect-[7/5] w-full rounded-sm object-cover object-top shadow"
+          loading="lazy"
+          [src]="deck.commander.url"
+          [alt]="deck.commander.name"
             />
-            <span class="line-clamp-2 w-full text-center text-[0.65rem] leading-tight">
+              <span class="line-clamp-2 w-full text-center text-[0.65rem] leading-tight">
               {{ deck.name }}
-            </span>
+        </span>
           </button>
-        </li>
-      } @empty {
-        <li class="w-full text-center text-sm opacity-70">No decks found.</li>
+          </li>
       }
+
+      <li class="w-20">
+        <button
+          type="button"
+          class="flex w-full cursor-pointer flex-col items-center gap-0.5 rounded p-0.5 transition hover:bg-black/5 dark:hover:bg-white/10"
+          (click)="addDeck()"
+        >
+            <div
+              class="flex aspect-[7/5] w-full items-center justify-center rounded-sm border border-solid border-neutral-500 bg-black/10 drop-shadow-sm dark:border-neutral-400 dark:bg-white/15"
+            >
+              <mat-icon>add</mat-icon>
+            </div>
+          <span class="line-clamp-2 w-full text-center text-[0.65rem] leading-tight">
+            {{ player()?.isGuest ? 'Select Commander' : 'Add deck' }}
+          </span>
+        </button>
+</li>
     </ul>
   } @else if (state() === SetupState.DeckSelected) {
-    <div class="text-center text-lg font-semibold">
-      @if (playerDeck()) {
-        {{ playerDeck()?.name }}
-      } @else {
-        Guest
-      }
-    </div>
+      <div class="text-center text-lg font-semibold">
+        {{ playerDeck()?.name ?? player()?.name }}
+      </div>
 
-    <div class="flex w-full min-w-0 justify-center gap-2">
+      <div class="flex w-full min-w-0 justify-center gap-2">
       @for (item of selectedCards(); track item.role) {
         <figure class="flex min-w-0 max-w-28 flex-1 flex-col items-center gap-1">
           <img
-            class="aspect-[5/7] w-full rounded-md object-cover shadow"
-            [src]="item.card.url"
-            [alt]="item.card.name"
-          />
-          <figcaption class="w-full text-center text-[0.65rem] leading-tight">
-            <span class="block uppercase tracking-wide opacity-60">{{ item.role }}</span>
-            {{ item.card.name }}
-          </figcaption>
-        </figure>
+          class="aspect-[5/7] w-full rounded-md object-cover shadow"
+          [src]="item.card.url"
+          [alt]="item.card.name"
+            />
+              <figcaption class="w-full text-center text-[0.65rem] leading-tight">
+              <span class="block uppercase tracking-wide opacity-60">{{ item.role }}</span>
+              {{ item.card.name }}
+        </figcaption>
+          </figure>
       }
     </div>
-  }
-
-  @if (state() !== SetupState.UserSelect) {
-    <button (click)="previousState()" matButton="text">← Back</button>
   }
 </div>

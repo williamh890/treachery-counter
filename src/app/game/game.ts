@@ -1,4 +1,4 @@
-import { Component, DestroyRef, computed, effect, inject, signal } from '@angular/core';
+import { Component, DestroyRef, computed, effect, inject, signal, viewChildren } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { Router } from '@angular/router';
 import { GameStore, DeathDecision } from '@state/game.store';
@@ -129,7 +129,7 @@ function visualSignature(layout: Layout): string {
 
           <div class="relative min-h-0 min-w-0 flex-1 overflow-hidden [container-type:size]">
             <div
-              class="absolute bg-grey left-1/2 top-1/2 flex justify-center items-center"
+              class="absolute border-1 bg-grey left-1/2 top-1/2 flex justify-center items-center"
               [class.touch-none]="game.gameState() === 'PLAY'"
               [class.select-none]="game.gameState() === 'PLAY'"
               [attr.data-seat]="tile.playerIndex"
@@ -173,7 +173,7 @@ function visualSignature(layout: Layout): string {
           </button>
         }
 
-        @if (game.playersReady()) {
+        @if (allReady()) {
           <button matButton="filled" class="pointer-events-auto" (click)="start()">Start</button>
         }
       </div>
@@ -253,6 +253,16 @@ export class Game {
       setTapFix(false);
     });
   }
+  private setups = viewChildren(PlayerSetup);
+
+  protected allReady = computed(() => {
+    const setups = this.setups();
+    return (
+      setups.length > 0 &&
+      setups.length === this.game.players().length &&
+      setups.every((s) => s.ready())
+    );
+  });
 
   isTouchScreen(): boolean {
     // Guard against Server-Side Rendering (SSR) like Next.js
@@ -275,6 +285,7 @@ export class Game {
   }
 
   toggleLayout() {
+    this.game.resetSetup();
     this.game.setLayoutMode(this.game.layoutMode() === 'rows' ? 'classic' : 'rows');
   }
 

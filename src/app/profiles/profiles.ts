@@ -163,9 +163,14 @@ export class Profiles {
     }
   }
 
-  protected async addNewDeck() {
-    const uid = this.uid();
-    if (!uid) return;
+  protected async addNewDeck(targetUid: string | null = this.uid()) {
+    const currentUid = this.uid();
+    if (!currentUid || !targetUid) return;
+
+    const isOwn = targetUid === currentUid;
+
+    // Adding for someone else needs a group to authorize the write
+    if (!isOwn) return;
 
     const ref = this.dialog.open<NewDeckDialog, void, NewDeck>(NewDeckDialog, {
       width: '32rem',
@@ -173,9 +178,12 @@ export class Profiles {
     });
 
     const result = await firstValueFrom(ref.afterClosed());
-    if (!result) return; // cancelled
+    if (!result) return;
 
-    await addDoc(collection(db, 'users', uid, 'decks'), result);
+    await addDoc(collection(db, 'users', targetUid, 'decks'), {
+      ...result,
+      ...{ addedBy: currentUid },
+    });
   }
 
   protected async removeDeck(deck: Deck) {

@@ -4,6 +4,29 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ---------- helpers ----------
+  function isValidDeck(d) {
+    return d.keys().hasOnly(['name', 'commander', 'partner', 'companion', 'groupId', 'addedBy'])
+      && d.keys().hasAll(['name', 'commander'])
+      && d.name is string && d.name.size() > 0 && d.name.size() <= 100
+      && isCommander(d.commander)
+      && (!('partner' in d) || isCommander(d.partner))
+      && (!('companion' in d) || isCommander(d.companion));
+  }
+
+  function hasNoProvenance(d) {
+    return !('groupId' in d) && !('addedBy' in d);
+  }
+
+  // Caller and deck owner (`uid`) are both members of the deck's group.
+  function isAddedByGroupMate(uid, d) {
+    return isSignedIn()
+      && d.keys().hasAll(['groupId', 'addedBy'])
+      && d.addedBy == request.auth.uid
+      && d.groupId is string
+      && exists(/databases/$(database)/documents/groups/$(d.groupId))
+      && request.auth.uid in get(/databases/$(database)/documents/groups/$(d.groupId)).data.memberIds
+      && uid in get(/databases/$(database)/documents/groups/$(d.groupId)).data.memberIds;
+  }
 
     function isSignedIn() {
       return request.auth != null;
@@ -27,14 +50,6 @@ service cloud.firestore {
         && c.keys().hasAll(['name', 'url'])
         && c.name is string && c.name.size() > 0 && c.name.size() <= 100
         && c.url is string && c.url.size() <= 500 && c.url.matches('https://.*');
-    }
-
-    function isValidDeck(d) {
-      return d.keys().hasOnly(['name', 'commander', 'partner'])
-        && d.keys().hasAll(['name', 'commander'])
-        && d.name is string && d.name.size() > 0 && d.name.size() <= 100
-        && isCommander(d.commander)
-        && (!('partner' in d) || isCommander(d.partner));
     }
 
     // ---------- users/{uid} ----------
@@ -63,7 +78,15 @@ service cloud.firestore {
 
       match /decks/{deckId} {
         allow read: if isSignedIn();
-        allow create, update: if isSelf(uid) && isValidDeck(request.resource.data);
+
+        allow create: if isValidDeck(request.resource.data)
+          && ((isSelf(uid) && hasNoProvenance(request.resource.data))
+              || isAddedByGroupMate(uid, request.resource.data));
+
+        allow update: if isSelf(uid)
+          && isValidDeck(request.resource.data)
+          && hasNoProvenance(request.resource.data);
+
         allow delete: if isSelf(uid);
       }
     }

@@ -1,5 +1,6 @@
 // features/decks/new-deck-dialog/new-deck-dialog.ts
 import { Component, computed, inject, signal } from '@angular/core';
+import { MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { FormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
 import {
@@ -13,6 +14,11 @@ import { MatFormField, MatLabel } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { Commander, NewDeck } from '../../models/deck';
 import { CommanderPicker } from './commander-picker';
+
+export interface NewDeckDialogData {
+  /** Guest/temp deck: no deck name field, the commander's name is used. */
+  temp?: boolean;
+}
 
 @Component({
   selector: 'app-new-deck-dialog',
@@ -29,14 +35,16 @@ import { CommanderPicker } from './commander-picker';
     CommanderPicker,
   ],
   template: `
-    <h2 mat-dialog-title>New deck</h2>
+    <h2 mat-dialog-title>{{ temp ? 'Select commander' : 'New deck' }}</h2>
 
     <mat-dialog-content>
       <div class="flex flex-col pt-2">
-        <mat-form-field class="w-full">
-          <mat-label>Deck name</mat-label>
-          <input matInput [(ngModel)]="name" autocomplete="off" />
-        </mat-form-field>
+        @if (!temp) {
+          <mat-form-field class="w-full">
+            <mat-label>Deck name</mat-label>
+            <input matInput [(ngModel)]="name" autocomplete="off" />
+          </mat-form-field>
+        }
 
         <app-commander-picker label="Commander" [(value)]="commander" />
         <app-commander-picker label="Partner (optional)" [(value)]="partner" />
@@ -46,7 +54,9 @@ import { CommanderPicker } from './commander-picker';
 
     <mat-dialog-actions align="end">
       <button mat-button mat-dialog-close>Cancel</button>
-      <button mat-flat-button [disabled]="!canSave()" (click)="save()">Create</button>
+      <button mat-flat-button [disabled]="!canSave()" (click)="save()">
+        {{ temp ? 'Select' : 'Create' }}
+      </button>
     </mat-dialog-actions>
   `,
 })
@@ -58,7 +68,12 @@ export class NewDeckDialog {
   protected partner = signal<Commander | null>(null);
   protected companion = signal<Commander | null>(null);
 
-  protected canSave = computed(() => this.name().trim() !== '' && this.commander() !== null);
+  protected temp =
+    inject<NewDeckDialogData | null>(MAT_DIALOG_DATA, { optional: true })?.temp ?? false;
+
+  protected canSave = computed(
+    () => this.commander() !== null && (this.temp || this.name().trim() !== ''),
+  );
 
   protected save() {
     const commander = this.commander();
@@ -68,9 +83,8 @@ export class NewDeckDialog {
     const companion = this.companion();
 
     this.ref.close({
-      name: this.name().trim(),
+      name: this.temp ? commander.name : this.name().trim(),
       commander,
-
       ...(partner ? { partner } : {}),
       ...(companion ? { companion } : {}),
     });

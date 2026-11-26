@@ -150,7 +150,10 @@ export class ActionSelector {
   seat = input.required<number>();
 
   hasPartner = computed(() => {
-    const player = this.gameStore.playerAt(this.seat());
+    const seat = this.gameStore.actionSelect()?.sourceSeat;
+    if (!seat) return;
+
+    const player = this.gameStore.playerAt(seat);
 
     return Boolean(player?.deck?.partner);
   });

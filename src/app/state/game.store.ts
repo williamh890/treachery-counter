@@ -32,6 +32,7 @@ export type Player = {
   partnerDmg: Record<number, number>;
   isGuest: boolean;
   deck: Deck | null;
+  uid: string | null;
 };
 
 export type ActionSelect = {
@@ -217,7 +218,7 @@ export const GameStore = signalStore(
     },
     setPlayerDeck(seat: number, deck: Deck | null) {
       patchState(store, ({ players }) => ({
-        players: players.map((p, i) => (i === seat ? { ...p, deck, isGuest: false } : p)),
+        players: players.map((p, i) => (i === seat ? { ...p, deck } : p)),
       }));
     },
     setPlayerName(seat: number, username: string) {
@@ -234,15 +235,39 @@ export const GameStore = signalStore(
     playerAt(seat: number): Player | undefined {
       return store.displayPlayers()[seat];
     },
+    setPlayerUser(seat: number, user: { uid: string; username: string } | null) {
+      patchState(store, ({ players }) => ({
+        players: players.map((p, i) =>
+          i === seat
+            ? {
+                ...p,
+                uid: user?.uid ?? null,
+                name: user?.username ?? `Player ${i + 1}`,
+                isGuest: false,
+              }
+            : p,
+        ),
+      }));
+    },
     /** Uses the committed players, not the preview. */
     playersReady(): boolean {
       const players = store.players();
-      return players.length > 0 && players.every((p) => p.deck || p.isGuest);
+      return players.length > 0 && players.every((p) => p.uid !== null || p.isGuest);
     },
     setActionOptions(value: ActionOptionsValue | null) {
       patchState(store, { actionOptions: value });
     },
-
+    resetSetup() {
+      patchState(store, {
+        players: store.players().map((p, i) => ({
+          ...p,
+          name: `Player ${i + 1}`,
+          uid: null,
+          deck: null,
+          isGuest: false,
+        })),
+      });
+    },
     resetGame() {
       store._clearHistory();
       store._actionCount.set(0);
@@ -262,6 +287,7 @@ export const GameStore = signalStore(
         infect: 0,
         commanderDmg: zeroDmg(store.playerCount()),
         partnerDmg: zeroDmg(store.playerCount()),
+        uid: null,
         deck: null,
         isGuest: false,
       }));
