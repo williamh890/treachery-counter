@@ -81,7 +81,9 @@ interface DeckCardInfo {
                 }
               </div>
 
-              <div class="my-3 h-px w-2/3 max-w-48 bg-current opacity-20" role="separator"></div>
+              @if ((usersNotInGame()?.length ?? 0) > 0) {
+                <div class="my-3 h-px w-2/3 max-w-48 bg-current opacity-20" role="separator"></div>
+              }
 
               <div
                 class="flex w-full flex-wrap justify-center gap-2"
@@ -152,9 +154,7 @@ export class PlayerSetup {
 
   usersNotInGame = computed(() => {
     const taken = this.gameStore.players().map((p) => p.uid);
-    return this.users().filter(
-      (user) => !taken.includes(user.uid),
-    );
+    return this.users().filter((user) => !taken.includes(user.uid));
   });
 
   /** Commander first, then partner/companion if the deck has them. */
