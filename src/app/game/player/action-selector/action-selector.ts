@@ -45,6 +45,7 @@ const snapDown = (n: number, step: number) => Math.max(0, (Math.ceil(n / step) -
       class="shrink-0"
       [value]="options()"
       [partner]="hasPartner()"
+      [self]="isSelf()"
       (valueChange)="setOptions($event)"
     />
 
@@ -156,6 +157,12 @@ export class ActionSelector {
     const player = this.gameStore.playerAt(seat);
 
     return Boolean(player?.deck?.partner);
+  });
+
+  /** True when the action's source and target are the same player. */
+  protected readonly isSelf = computed(() => {
+    const action = this.gameStore.actionSelect();
+    return !!action && action.sourceSeat === action.targetSeat;
   });
 
   /** Current count. Two-way bindable, e.g. [(count)]="..."; never goes below 0. */

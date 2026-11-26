@@ -162,15 +162,6 @@ export const OPTION_TREE: Record<
   All: { Damage: [], Healing: [], Infect: [] },
 };
 
-/** Type buttons for a target. With a tag picked, only the types that have tags. */
-export function availableTypes(
-  target: ActionTarget,
-  tags: readonly ActionTag[],
-): readonly ActionType[] {
-  const types = Object.entries(OPTION_TREE[target]) as [ActionType, readonly ActionTag[]][];
-  return types.filter(([, typeTags]) => !tags.length || typeTags.length).map(([type]) => type);
-}
-
 /** Tag buttons for a target and type. Partner needs a seat with a partner commander. */
 export function availableTags(
   target: ActionTarget,
@@ -181,16 +172,43 @@ export function availableTags(
   return hasPartner ? tags : tags.filter((tag) => tag !== 'Partner');
 }
 
+/** Situation the selector is in, beyond what the user has picked. */
+export interface OptionContext {
+  /** The source seat has a partner commander. */
+  hasPartner: boolean;
+  /** Source and target seat are the same player. */
+  self: boolean;
+}
+
+/** Type buttons that make no sense in the current situation. */
+function isHidden(target: ActionTarget, type: ActionType, ctx: OptionContext): boolean {
+  // Lifelink on yourself does nothing
+  return target === 'Player' && type === 'Lifelink' && ctx.self;
+}
+
+/** Type buttons for a target. With a tag picked, only the types that have tags. */
+export function availableTypes(
+  target: ActionTarget,
+  tags: readonly ActionTag[],
+  ctx: OptionContext,
+): readonly ActionType[] {
+  const types = Object.entries(OPTION_TREE[target]) as [ActionType, readonly ActionTag[]][];
+  return types
+    .filter(([type, typeTags]) => (!tags.length || typeTags.length) && !isHidden(target, type, ctx))
+    .map(([type]) => type);
+}
+
 /** Drops anything that's no longer valid after a change (e.g. switching target). */
 export function normalizeOptions(
   value: ActionOptionsValue,
-  hasPartner: boolean,
+  ctx: OptionContext,
 ): ActionOptionsValue {
   const { target } = value;
-  // Falls back to the target's first type
-  const type = value.type in OPTION_TREE[target] ? value.type : availableTypes(target, [])[0];
-  const allowed = availableTags(target, type, hasPartner);
-  // One tag at a time: Commander and Partner are exclusive
+  // Falls back to the target's first available type
+  const type = availableTypes(target, [], ctx).includes(value.type)
+    ? value.type
+    : availableTypes(target, [], ctx)[0];
+  const allowed = availableTags(target, type, ctx.hasPartner);
   const tags = value.tags.filter((tag) => allowed.includes(tag)).slice(0, 1);
   return { target, type, tags };
 }

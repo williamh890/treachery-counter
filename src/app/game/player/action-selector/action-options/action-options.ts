@@ -23,6 +23,7 @@ import {
   ButtonDef,
   ButtonId,
   DEFAULT_ACTION_OPTIONS,
+  OptionContext,
   TARGETS,
   availableTags,
   availableTypes,
@@ -183,6 +184,12 @@ export class ActionOptions {
   value = model<ActionOptionsValue>(DEFAULT_ACTION_OPTIONS);
 
   partner = input.required<boolean>();
+  self = input(false);
+
+  private readonly ctx = computed<OptionContext>(() => ({
+    hasPartner: this.partner(),
+    self: this.self(),
+  }));
 
   protected readonly dur = DUR;
   protected readonly enterDelayCss = `${DUR.enterDelay}ms`;
@@ -208,7 +215,7 @@ export class ActionOptions {
     const { target, type, tags: selectedTags } = this.value();
     const partner = this.partner();
 
-    const types = availableTypes(target, selectedTags);
+    const types = availableTypes(target, selectedTags, this.ctx());
     const tags = availableTags(target, type, partner);
 
     const items: Item[] = types.map((t) => pill(TYPE_GROUP, t));
@@ -397,15 +404,15 @@ export class ActionOptions {
     this.value.update((v) => {
       switch (group.id) {
         case 'target':
-          return normalizeOptions({ ...v, target: id as ActionTarget }, this.partner());
+          return normalizeOptions({ ...v, target: id as ActionTarget }, this.ctx());
         case 'type':
-          return normalizeOptions({ ...v, type: id as ActionType }, this.partner());
+          return normalizeOptions({ ...v, type: id as ActionType }, this.ctx());
         case 'tags': {
           const tag = id as ActionTag;
           // Tapping the selected tag clears it. normalizeOptions keeps one tag at a time,
           // so picking one replaces the other.
           const tags: ActionTag[] = v.tags.includes(tag) ? [] : [tag];
-          return normalizeOptions({ ...v, tags }, this.partner());
+          return normalizeOptions({ ...v, tags }, this.ctx());
         }
       }
     });
