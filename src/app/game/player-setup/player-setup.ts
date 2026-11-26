@@ -39,8 +39,11 @@ interface DeckCardInfo {
   host: { class: 'block h-full w-full min-w-0 overflow-hidden' },
   selector: 'app-player-setup',
   template: `
-    <div class="flex h-full min-h-0 min-w-0 flex-col items-center justify-center gap-2 p-4">
-      <div class="grid w-full shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 p-4">
+    <div class="relative h-full min-h-0 min-w-0 p-4">
+      <!-- Fixed header -->
+      <header
+        class="absolute inset-x-4 top-4 z-10 grid min-h-[3.25rem] grid-cols-[1fr_auto_1fr] items-center gap-2 px-2 pt-3"
+      >
         <div class="justify-self-start">
           @if (state() !== SetupState.UserSelect) {
             <button (click)="previousState()" matButton="text">← Back</button>
@@ -48,58 +51,77 @@ interface DeckCardInfo {
         </div>
 
         <div class="min-w-0 truncate text-center text-xs opacity-60">
-          @if (player()?.name) {
-            {{ player()?.name }}
+          @if (state() === SetupState.UserSelect) {
+            Player Select
           } @else {
-            Seat {{ seat() }} ▲
+            @if (player()?.name) {
+              {{ player()?.name }}
+            } @else {
+              Seat {{ seat() }} ▲
+            }
           }
         </div>
+      </header>
 
-        <div class="justify-self-end">
-          @if (state() === SetupState.DeckSelect) {
-            <button (click)="skipDeck()" matButton="text">Skip →</button>
-          }
-        </div>
+      <!-- Content: fills the rest and centers itself -->
+      <div
+        class="flex h-full min-h-0 min-w-0 flex-col items-center justify-center gap-2 pt-[3.25rem]"
+        [class]="state() === SetupState.DeckSelected ? 'pb-[3.25rem]' : 'pb-0'"
+      >
+        @if (state() === SetupState.UserSelect) {
+          <div class="flex min-h-0 w-full flex-1 flex-col items-center overflow-y-auto">
+            <div class="my-auto flex w-full flex-col items-center gap-2 pb-[3.25rem]">
+              <div
+                class="flex w-full flex-wrap justify-center gap-2"
+                role="group"
+                aria-label="Player Selection"
+              >
+                @for (user of usersNotInGame(); track user.uid) {
+                  <mat-chip (click)="selectUser(user)">{{ user.username }}</mat-chip>
+                }
+              </div>
+
+              <div class="my-3 h-px w-2/3 max-w-48 bg-current opacity-20" role="separator"></div>
+
+              <div
+                class="flex w-full flex-wrap justify-center gap-2"
+                role="group"
+                aria-label="Guest Selection"
+              >
+                <mat-chip (click)="chooseGuest()">Guest</mat-chip>
+              </div>
+            </div>
+          </div>
+        } @else if (state() === SetupState.DeckSelect) {
+          <app-deck-select
+            [decks]="decks()"
+            [isGuest]="!!player()?.isGuest"
+            (select)="selectDeck($event)"
+            (add)="addDeck()"
+            (skip)="skipDeck()"
+          />
+        } @else if (state() === SetupState.DeckSelected) {
+          <div class="text-center text-lg font-semibold">
+            {{ playerDeck()?.name ?? player()?.name }}
+          </div>
+
+          <div class="flex w-full min-w-0 justify-center gap-2">
+            @for (item of selectedCards(); track item.role) {
+              <figure class="flex min-w-0 max-w-28 flex-1 flex-col items-center gap-1">
+                <img
+                  class="aspect-[5/7] w-full rounded-md object-cover shadow"
+                  [src]="item.card.url"
+                  [alt]="item.card.name"
+                />
+                <figcaption class="w-full text-center text-[0.65rem] leading-tight">
+                  <span class="block uppercase tracking-wide opacity-60">{{ item.role }}</span>
+                  {{ item.card.name }}
+                </figcaption>
+              </figure>
+            }
+          </div>
+        }
       </div>
-
-      @if (state() === SetupState.UserSelect) {
-        <mat-chip-set aria-label="Player Selection">
-          @for (user of usersNotInGame(); track user.uid) {
-            <mat-chip (click)="selectUser(user)">{{ user.username }}</mat-chip>
-          }
-        </mat-chip-set>
-
-        <mat-chip-set aria-label="Player Selection">
-          <mat-chip (click)="chooseGuest()">Guest</mat-chip>
-        </mat-chip-set>
-      } @else if (state() === SetupState.DeckSelect) {
-        <app-deck-select
-          [decks]="decks()"
-          [isGuest]="!!player()?.isGuest"
-          (select)="selectDeck($event)"
-          (add)="addDeck()"
-        />
-      } @else if (state() === SetupState.DeckSelected) {
-        <div class="text-center text-lg font-semibold">
-          {{ playerDeck()?.name ?? player()?.name }}
-        </div>
-
-        <div class="flex w-full min-w-0 justify-center gap-2">
-          @for (item of selectedCards(); track item.role) {
-            <figure class="flex min-w-0 max-w-28 flex-1 flex-col items-center gap-1">
-              <img
-                class="aspect-[5/7] w-full rounded-md object-cover shadow"
-                [src]="item.card.url"
-                [alt]="item.card.name"
-              />
-              <figcaption class="w-full text-center text-[0.65rem] leading-tight">
-                <span class="block uppercase tracking-wide opacity-60">{{ item.role }}</span>
-                {{ item.card.name }}
-              </figcaption>
-            </figure>
-          }
-        </div>
-      }
     </div>
   `,
 })
@@ -130,7 +152,9 @@ export class PlayerSetup {
 
   usersNotInGame = computed(() => {
     const taken = this.gameStore.players().map((p) => p.uid);
-    return this.users().filter((user) => !taken.includes(user.uid));
+    return this.users().filter(
+      (user) => !taken.includes(user.uid),
+    );
   });
 
   /** Commander first, then partner/companion if the deck has them. */
