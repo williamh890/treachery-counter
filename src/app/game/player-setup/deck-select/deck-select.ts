@@ -1,15 +1,15 @@
-import { Component, input, output } from '@angular/core';
+import { Component, computed, input, output } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { Deck } from '@models/deck';
 
 @Component({
-  imports: [ MatIconModule],
+  imports: [MatIconModule],
   selector: 'app-deck-select',
   template: `
     <ul
       class="flex min-h-0 w-full flex-1 flex-wrap content-start justify-center gap-1 overflow-y-auto overflow-x-hidden"
     >
-      @for (deck of decks(); track deck.id) {
+      @for (deck of sortedDecks(); track deck.id) {
         <li class="w-20">
           <button
             type="button"
@@ -41,7 +41,7 @@ import { Deck } from '@models/deck';
             <mat-icon>add</mat-icon>
           </div>
           <span class="line-clamp-2 w-full text-center text-[0.65rem] leading-tight">
-            {{ isGuest()  ? 'Select Commander' : 'Add deck' }}
+            {{ isGuest() ? 'Select Commander' : 'Add deck' }}
           </span>
         </button>
       </li>
@@ -52,6 +52,12 @@ import { Deck } from '@models/deck';
 export class DeckSelect {
   decks = input<Deck[]>();
   isGuest = input.required<boolean>();
+
+  sortedDecks = computed(() =>
+    this.decks()?.sort((a, b) =>
+      (a.name ?? '').localeCompare(b.name ?? '', undefined, { sensitivity: 'base', numeric: true }),
+    ),
+  );
 
   select = output<Deck>();
   add = output<void>();
